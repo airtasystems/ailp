@@ -1,6 +1,6 @@
 {
   "name": "@airtasystems/ailp",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "TypeScript client for the AILP (AI Log Protocol) LLM compliance risk assessment API.",
   "type": "module",
   "exports": {
