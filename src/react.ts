@@ -234,7 +234,7 @@ export type UseAilpResult = UseAssessState & { ailp: AilpFn };
  * Reads `NEXT_PUBLIC_*` (Next.js) or `VITE_*` (Vite) when options are omitted.
  *
  * Env vars (all optional except the API key required by the chosen provider):
- * - `NEXT_PUBLIC_AILP_BASE_URL` / `VITE_AILP_BASE_URL` — default `http://127.0.0.1:8000`
+ * - `NEXT_PUBLIC_AILP_BASE_URL` / `VITE_AILP_BASE_URL` — default `http://127.0.0.1:8000`; hosted example `https://airtasystems.com/ailp-server` (no trailing slash)
  * - `NEXT_PUBLIC_AILP_PROVIDER` / `VITE_AILP_PROVIDER` — `gemini` (default) or `openai`
  * - `NEXT_PUBLIC_GEMINI_API_KEY` / `VITE_GEMINI_API_KEY` — required if provider is `gemini`
  * - `NEXT_PUBLIC_OPENAI_API_KEY` / `VITE_OPENAI_API_KEY` — required if provider is `openai`

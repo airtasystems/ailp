@@ -28,14 +28,14 @@ export type AilpFn = (
  *
  * @example Gemini (default provider)
  * const ailp = createAilp({
- *   baseUrl: "http://localhost:8000",
+ *   baseUrl: "https://airtasystems.com/ailp-server",
  *   frameworks: ["eu-ai-act", "owasp-llm"],
  *   geminiApiKey: process.env.GEMINI_API_KEY,
  * });
  *
  * @example OpenAI
  * const ailp = createAilp({
- *   baseUrl: "http://localhost:8000",
+ *   baseUrl: "https://airtasystems.com/ailp-server",
  *   frameworks: ["eu-ai-act"],
  *   provider: "openai",
  *   openaiApiKey: process.env.OPENAI_API_KEY,
