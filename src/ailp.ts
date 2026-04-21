@@ -62,7 +62,9 @@ export function createAilp(options: AilpOptions): AilpFn {
       output,
       modelTested: callOptions?.model,
       framework: options.frameworks,
-      ...(options.provider ? { provider: options.provider } : {}),
+      ...(options.provider !== undefined ? { provider: options.provider } : {}),
+      ...(options.expertProvider !== undefined ? { expertProvider: options.expertProvider } : {}),
+      ...(options.judgeProvider !== undefined ? { judgeProvider: options.judgeProvider } : {}),
       ...(_buildAirtaBlock(options) as Pick<AilpLogEntry, "airtasystems">),
     };
 

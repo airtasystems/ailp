@@ -1,4 +1,4 @@
-export type AilpFrameworkSlug = "eu_ai_act" | "eu-ai-act" | "oecd" | "owasp_llm" | "owasp-llm" | "nist_ai_rmf" | "nist-ai-rmf" | "mitre_attack" | "mitre-attack" | "pld" | "fria_core" | "fria-core" | "fria_extended" | "fria-extended" | (string & {});
+export type AilpFrameworkSlug = "eu_ai_act" | "eu-ai-act" | "oecd" | "owasp_llm" | "owasp-llm" | "owasp_agent" | "owasp-agent" | "nist_ai_rmf" | "nist-ai-rmf" | "mitre_attack" | "mitre-attack" | "pld" | "fria_core" | "fria-core" | "fria_extended" | "fria-extended" | (string & {});
 /**
  * Which LLM AILP uses internally for the expert + judge pipeline.
  * - `"gemini"` (default): requires a Gemini API key.
@@ -41,11 +41,16 @@ export interface AilpLogEntry {
      */
     framework?: AilpFrameworkSlug | AilpFrameworkSlug[];
     /**
-     * Which LLM AILP uses internally to run the expert + judge pipeline.
+     * Which LLM AILP uses internally to run the expert + judge pipeline when
+     * `expertProvider` / `judgeProvider` are omitted (defaults for both sides).
      * Independent of `model` (which describes the model that produced `output`).
      * Omit to use the server default (`gemini`).
      */
     provider?: AilpProvider;
+    /** When set, framework experts use this vendor instead of `provider`. */
+    expertProvider?: AilpProvider;
+    /** When set, the judge uses this vendor instead of `provider`. */
+    judgeProvider?: AilpProvider;
     /**
      * Optional per-request override for the model the **expert** node uses
      * within the chosen `provider`. Takes precedence over the server's *_MODEL
@@ -68,9 +73,13 @@ export interface AilpExpertResult {
     risk_level: AilpRiskLevel;
     reasoning: string;
 }
+/** Summary vendor for the pipeline: same as experts/judge when aligned, else `"mixed"`. */
+export type AilpAssessmentProviderField = AilpProvider | "mixed";
 /** Which LLM AILP actually used to score this request (expert + judge nodes). */
 export interface AilpAssessment {
-    provider: AilpProvider;
+    provider: AilpAssessmentProviderField;
+    expertProvider: AilpProvider;
+    judgeProvider: AilpProvider;
     expertModel: string;
     judgeModel: string;
 }
@@ -88,6 +97,44 @@ export interface AilpAssessResponse {
     /** Echo of the submitted log entry. */
     log: AilpLogEntry;
 }
+/**
+ * One expert payload on an `event: "expert"` line (server may truncate
+ * `reasoning` for bandwidth).
+ */
+export interface AilpAssessStreamExpertPayload {
+    framework: string;
+    risk_level: string;
+    reasoning: string;
+    expert_id?: string;
+}
+/**
+ * Discriminated union for each NDJSON object from `POST /assess/stream`.
+ * The final `done` object includes the same fields as {@link AilpAssessResponse}.
+ */
+export type AilpAssessStreamEvent = {
+    event: "meta";
+    frameworks: string[];
+    assessment: AilpAssessment;
+} | {
+    event: "cached";
+} | {
+    event: "expert";
+    expert: AilpAssessStreamExpertPayload;
+}
+/** Emitted before a long gap: `experts` right after `meta` when not cached; `judge` when experts are in state and the judge LLM runs. */
+ | {
+    event: "phase";
+    phase: "experts" | "judge";
+} | {
+    event: "judge";
+    risk_level: string;
+    reasoning_preview: string;
+} | (AilpAssessResponse & {
+    event: "done";
+}) | {
+    event: "error";
+    detail: string;
+};
 export interface AilpOptions {
     /** Base URL of the AILP server (no trailing slash). */
     baseUrl: string;
@@ -99,6 +146,8 @@ export interface AilpOptions {
      * Which LLM AILP uses internally (expert + judge pipeline). Defaults to `gemini`.
      */
     provider?: AilpProvider;
+    expertProvider?: AilpProvider;
+    judgeProvider?: AilpProvider;
     /**
      * Gemini API key. Required when `provider` resolves to `"gemini"`; sent as
      * the `X-Gemini-Api-Key` request header. Security: if you inline this via a

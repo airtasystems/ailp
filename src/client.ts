@@ -1,5 +1,6 @@
 import type {
   AilpAssessResponse,
+  AilpAssessStreamEvent,
   AilpClientOptions,
   AilpLogEntry,
   AilpProvider,
@@ -12,23 +13,100 @@ export interface AilpAssessHeaders {
 }
 
 /**
- * Build the provider-specific `X-*-Api-Key` header map for the chosen provider.
- * The Gemini/OpenAI key is sent only for its own provider.
+ * Build `X-*-Api-Key` headers for an assess request. Sends **both** keys when
+ * experts and judge use different vendors (`expertProvider` / `judgeProvider`).
+ * When `provider` and split fields are all omitted (server uses `.config` defaults),
+ * sends any non-empty keys from `auth` so mixed pipelines still work.
  */
 export function buildProviderAuthHeaders(
-  provider: AilpProvider | undefined,
+  entry: Pick<AilpLogEntry, "provider" | "expertProvider" | "judgeProvider">,
   auth: AilpAssessHeaders | undefined,
 ): Record<string, string> {
   if (!auth) return {};
   const headers: Record<string, string> = {};
-  const p = provider ?? "gemini";
-  if (p === "gemini" && auth.geminiApiKey && auth.geminiApiKey.trim() !== "") {
+  const expertP = entry.expertProvider ?? entry.provider;
+  const judgeP = entry.judgeProvider ?? entry.provider;
+  const gemini = expertP === "gemini" || judgeP === "gemini";
+  const openai = expertP === "openai" || judgeP === "openai";
+  if (!gemini && !openai) {
+    if (auth.geminiApiKey && auth.geminiApiKey.trim() !== "") {
+      headers["X-Gemini-Api-Key"] = auth.geminiApiKey.trim();
+    }
+    if (auth.openaiApiKey && auth.openaiApiKey.trim() !== "") {
+      headers["X-OpenAI-Api-Key"] = auth.openaiApiKey.trim();
+    }
+    return headers;
+  }
+  if (gemini && auth.geminiApiKey && auth.geminiApiKey.trim() !== "") {
     headers["X-Gemini-Api-Key"] = auth.geminiApiKey.trim();
   }
-  if (p === "openai" && auth.openaiApiKey && auth.openaiApiKey.trim() !== "") {
+  if (openai && auth.openaiApiKey && auth.openaiApiKey.trim() !== "") {
     headers["X-OpenAI-Api-Key"] = auth.openaiApiKey.trim();
   }
   return headers;
+}
+
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null;
+}
+
+export interface AilpAssessStreamOptions {
+  /** Invoked for each parsed NDJSON object (including `done`; not called after stream `error` throw). */
+  onEvent?: (event: AilpAssessStreamEvent) => void;
+}
+
+/**
+ * Parse the body of `POST /assess/stream` (NDJSON). Use with your own `fetch`
+ * when you cannot use {@link AilpClient.assessStream} (e.g. a same-origin proxy).
+ *
+ * @throws {@link AilpError} on invalid JSON, missing `done`, or `event: "error"` from the server.
+ */
+export async function readAilpAssessNdjsonStream(
+  body: ReadableStream<Uint8Array> | null,
+  onEvent?: (event: AilpAssessStreamEvent) => void,
+): Promise<AilpAssessResponse> {
+  if (body == null) {
+    throw new AilpError("Assess stream response had no body", 0, null);
+  }
+  const reader = body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  let finalResult: AilpAssessResponse | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const parts = buf.split("\n");
+    buf = parts.pop() ?? "";
+    for (const raw of parts) {
+      const line = raw.trim();
+      if (!line) continue;
+      let obj: unknown;
+      try {
+        obj = JSON.parse(line) as unknown;
+      } catch {
+        throw new AilpError("Invalid NDJSON line in assess stream", 0, { line });
+      }
+      if (!isRecord(obj) || typeof obj.event !== "string") {
+        throw new AilpError("Assess stream line missing event field", 0, obj);
+      }
+      const ev = obj as AilpAssessStreamEvent;
+      onEvent?.(ev);
+      if (obj.event === "done") {
+        const { event: _e, ...rest } = obj;
+        finalResult = rest as unknown as AilpAssessResponse;
+      }
+      if (obj.event === "error") {
+        const detail =
+          typeof obj.detail === "string" ? obj.detail : "Assessment stream error";
+        throw new AilpError(detail, 0, obj);
+      }
+    }
+  }
+
+  if (finalResult) return finalResult;
+  throw new AilpError("Assess stream ended without a done event", 0, null);
 }
 
 export class AilpClient {
@@ -61,13 +139,13 @@ export class AilpClient {
    *
    * `authHeaders` (optional) lets you pass provider API keys per request — the
    * right `X-Gemini-Api-Key` or `X-OpenAI-Api-Key` is selected based on
-   * `entry.provider`. Throws an `AilpError` on non-2xx responses.
+   * `entry` (including optional `expertProvider` / `judgeProvider`). Throws an `AilpError` on non-2xx responses.
    */
   async assess(
     entry: AilpLogEntry,
     authHeaders?: AilpAssessHeaders,
   ): Promise<AilpAssessResponse> {
-    const extra = buildProviderAuthHeaders(entry.provider, authHeaders);
+    const extra = buildProviderAuthHeaders(entry, authHeaders);
     const res = await this._fetch("/assess", {
       method: "POST",
       body: JSON.stringify(entry),
@@ -85,6 +163,46 @@ export class AilpClient {
     }
 
     return data as AilpAssessResponse;
+  }
+
+  /**
+   * Same log entry as {@link AilpClient.assess}, but calls `POST /assess/stream`
+   * and parses NDJSON until `done`. Optional `onEvent` receives progressive
+   * `meta`, `cached`, `expert`, and `judge` lines for UI or logging.
+   */
+  async assessStream(
+    entry: AilpLogEntry,
+    authHeaders?: AilpAssessHeaders,
+    options?: AilpAssessStreamOptions,
+  ): Promise<AilpAssessResponse> {
+    const extra = buildProviderAuthHeaders(entry, authHeaders);
+    const res = await this._fetch("/assess/stream", {
+      method: "POST",
+      body: JSON.stringify(entry),
+      headers: {
+        ...extra,
+        Accept: "application/x-ndjson, application/json",
+      },
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      let data: unknown = text;
+      try {
+        data = JSON.parse(text) as unknown;
+      } catch {
+        /* keep text */
+      }
+      const detail =
+        typeof data === "object" && data !== null && "detail" in data
+          ? String((data as { detail: unknown }).detail)
+          : typeof data === "string" && data.length > 0
+            ? data
+            : res.statusText;
+      throw new AilpError(`AILP assess stream failed (HTTP ${res.status}): ${detail}`, res.status, data);
+    }
+
+    return readAilpAssessNdjsonStream(res.body, options?.onEvent);
   }
 
   private async _fetch(path: string, init: RequestInit = {}): Promise<Response> {

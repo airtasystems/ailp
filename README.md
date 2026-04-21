@@ -36,7 +36,7 @@ Drop in after **any LLM call**:
 const res = await ailp(messages, llmOutput);
 
 console.log(res.risk_level);      // "compliant"
-console.log(res.frameworks);      // ["EU AI Act", "OWASP LLM & Agent"]
+console.log(res.frameworks);      // e.g. ["EU AI Act", "OWASP Top 10 for LLMs"]
 console.log(res.experts);         // [{ framework, risk_level, reasoning }, ...]
 console.log(res.judge_reasoning); // "The interaction is benign and poses no risk..."
 ```
@@ -65,7 +65,39 @@ const ailp = createAilp({
 
 The server picks the internal expert/judge models from env (`GEMINI_MODEL`/`GEMINI_JUDGE`, `OPENAI_MODEL`/`OPENAI_JUDGE`); per-request `expertModel` / `judgeModel` overrides are also supported.
 
+To use **different vendors** for experts vs judge, set `expertProvider` and `judgeProvider` on `createAilp({ ... })` (or on each `AilpLogEntry`). Supply **both** API keys when both sides need them — the client sends the matching `X-*-Api-Key` headers automatically.
+
+On the **server**, you can omit `provider` (and split fields) from JSON and set **`AILP_PROVIDER`**, **`AILP_EXPERT_PROVIDER`**, **`AILP_JUDGE_PROVIDER`**, **`AILP_EXPERT_MODEL`**, and **`AILP_JUDGE_MODEL`** in repo **`.config`** instead. If you omit `provider` from `createAilp()` options, the SDK does not send that field so those defaults apply. When nothing in the payload selects a vendor, the SDK sends **any** API keys you pass so mixed `.config` pipelines still authenticate.
+
 > **Security:** LLM API keys are secrets. Do **not** ship them to browsers via `NEXT_PUBLIC_*` or `VITE_*` variables in production — they will be baked into the JS bundle. Call AILP from a **server route** (Next.js API route, Vite server endpoint, etc.) that reads the key from a private env var. `NEXT_PUBLIC_*` is only safe for local demos.
+
+---
+
+## Streaming assessment (`assessStream`)
+
+`POST /assess/stream` returns **NDJSON** (one JSON object per line) so clients can show progress while experts and the judge run. **`AilpClient.assessStream()`** calls that endpoint, invokes an optional **`onEvent`** callback for each `meta`, `cached`, `phase`, `expert`, and `judge` line, then resolves with the same object shape as **`assess()`** (parsed from the final `done` line).
+
+```typescript
+import { AilpClient } from "@airtasystems/ailp";
+
+const client = new AilpClient({ baseUrl: "http://127.0.0.1:8000", timeoutMs: 120_000 });
+
+const result = await client.assessStream(
+  entry,
+  { geminiApiKey: process.env.GEMINI_API_KEY! },
+  {
+    onEvent(ev) {
+      if (ev.event === "expert") {
+        console.log(ev.expert.framework, ev.expert.risk_level);
+      }
+    },
+  },
+);
+```
+
+If you **proxy** AILP through your own `fetch` (for example a Next.js route that forwards the body), use **`readAilpAssessNdjsonStream(response.body, onEvent)`** to parse the stream; it does not require a base URL.
+
+Exported types: **`AilpAssessStreamEvent`**, **`AilpAssessStreamExpertPayload`**, **`AilpAssessStreamOptions`**. See the main AILP **README** for the NDJSON `event` contract.
 
 ---
 
@@ -234,7 +266,8 @@ const { assess, result, loading, error } = useAssess(ailp);
 |------|-----------|
 | `eu_ai_act` / `eu-ai-act` | EU AI Act |
 | `oecd` | OECD AI Principles (default) |
-| `owasp_llm` / `owasp-llm` | OWASP LLM & Agent |
+| `owasp_llm` / `owasp-llm` | OWASP Top 10 for LLMs |
+| `owasp_agent` / `owasp-agent` | OWASP Top 10 for Agentic Applications |
 | `nist_ai_rmf` / `nist-ai-rmf` | NIST AI RMF |
 | `mitre_attack` / `mitre-attack` | MITRE ATT&CK |
 | `pld` | EU PLD (AI) |

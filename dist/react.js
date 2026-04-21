@@ -135,23 +135,29 @@ export function resolveAilpConfigFromEnv(overrides) {
         coerceProvider(next.provider) ??
         coerceProvider(vite.provider) ??
         "gemini";
+    const expertProvider = overrides?.expertProvider ?? provider;
+    const judgeProvider = overrides?.judgeProvider ?? provider;
     const geminiApiKey = overrides?.geminiApiKey ??
         nonempty(next.geminiApiKey) ??
         nonempty(vite.geminiApiKey);
     const openaiApiKey = overrides?.openaiApiKey ??
         nonempty(next.openaiApiKey) ??
         nonempty(vite.openaiApiKey);
-    if (provider === "gemini" && (geminiApiKey == null || geminiApiKey.trim() === "")) {
-        throw new Error("AILP: missing Gemini API key. Set NEXT_PUBLIC_GEMINI_API_KEY (or VITE_GEMINI_API_KEY), pass geminiApiKey to useAilp(), or switch provider. Restart the dev server after changing env so it is inlined (Next.js).");
+    if ((expertProvider === "gemini" || judgeProvider === "gemini") &&
+        (geminiApiKey == null || geminiApiKey.trim() === "")) {
+        throw new Error("AILP: missing Gemini API key (experts and/or judge use Gemini). Set NEXT_PUBLIC_GEMINI_API_KEY (or VITE_GEMINI_API_KEY), pass geminiApiKey to useAilp(), or adjust expertProvider/judgeProvider. Restart the dev server after changing env so it is inlined (Next.js).");
     }
-    if (provider === "openai" && (openaiApiKey == null || openaiApiKey.trim() === "")) {
-        throw new Error("AILP: missing OpenAI API key. Set NEXT_PUBLIC_OPENAI_API_KEY (or VITE_OPENAI_API_KEY), pass openaiApiKey to useAilp(), or switch provider. Restart the dev server after changing env so it is inlined (Next.js).");
+    if ((expertProvider === "openai" || judgeProvider === "openai") &&
+        (openaiApiKey == null || openaiApiKey.trim() === "")) {
+        throw new Error("AILP: missing OpenAI API key (experts and/or judge use OpenAI). Set NEXT_PUBLIC_OPENAI_API_KEY (or VITE_OPENAI_API_KEY), pass openaiApiKey to useAilp(), or adjust expertProvider/judgeProvider. Restart the dev server after changing env so it is inlined (Next.js).");
     }
     return {
         baseUrl: baseUrl.replace(/\/$/, ""),
         programId,
         frameworks,
         provider,
+        expertProvider,
+        judgeProvider,
         geminiApiKey,
         openaiApiKey,
         timeoutMs: overrides?.timeoutMs,
@@ -184,6 +190,8 @@ export function useAilp(options) {
     const frameworks = options?.frameworks;
     const timeoutMs = options?.timeoutMs;
     const provider = options?.provider;
+    const expertProvider = options?.expertProvider;
+    const judgeProvider = options?.judgeProvider;
     const geminiApiKey = options?.geminiApiKey;
     const openaiApiKey = options?.openaiApiKey;
     const config = useMemo(() => resolveAilpConfigFromEnv({
@@ -192,6 +200,8 @@ export function useAilp(options) {
         frameworks,
         timeoutMs,
         provider,
+        expertProvider,
+        judgeProvider,
         geminiApiKey,
         openaiApiKey,
     }), [
@@ -200,6 +210,8 @@ export function useAilp(options) {
         frameworksDepKey(frameworks),
         timeoutMs,
         provider,
+        expertProvider,
+        judgeProvider,
         geminiApiKey,
         openaiApiKey,
     ]);

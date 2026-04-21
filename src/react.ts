@@ -170,6 +170,9 @@ export function resolveAilpConfigFromEnv(overrides?: Partial<AilpOptions>): Ailp
     coerceProvider(vite.provider) ??
     "gemini";
 
+  const expertProvider: AilpProvider = overrides?.expertProvider ?? provider;
+  const judgeProvider: AilpProvider = overrides?.judgeProvider ?? provider;
+
   const geminiApiKey =
     overrides?.geminiApiKey ??
     nonempty(next.geminiApiKey) ??
@@ -180,14 +183,20 @@ export function resolveAilpConfigFromEnv(overrides?: Partial<AilpOptions>): Ailp
     nonempty(next.openaiApiKey) ??
     nonempty(vite.openaiApiKey);
 
-  if (provider === "gemini" && (geminiApiKey == null || geminiApiKey.trim() === "")) {
+  if (
+    (expertProvider === "gemini" || judgeProvider === "gemini") &&
+    (geminiApiKey == null || geminiApiKey.trim() === "")
+  ) {
     throw new Error(
-      "AILP: missing Gemini API key. Set NEXT_PUBLIC_GEMINI_API_KEY (or VITE_GEMINI_API_KEY), pass geminiApiKey to useAilp(), or switch provider. Restart the dev server after changing env so it is inlined (Next.js).",
+      "AILP: missing Gemini API key (experts and/or judge use Gemini). Set NEXT_PUBLIC_GEMINI_API_KEY (or VITE_GEMINI_API_KEY), pass geminiApiKey to useAilp(), or adjust expertProvider/judgeProvider. Restart the dev server after changing env so it is inlined (Next.js).",
     );
   }
-  if (provider === "openai" && (openaiApiKey == null || openaiApiKey.trim() === "")) {
+  if (
+    (expertProvider === "openai" || judgeProvider === "openai") &&
+    (openaiApiKey == null || openaiApiKey.trim() === "")
+  ) {
     throw new Error(
-      "AILP: missing OpenAI API key. Set NEXT_PUBLIC_OPENAI_API_KEY (or VITE_OPENAI_API_KEY), pass openaiApiKey to useAilp(), or switch provider. Restart the dev server after changing env so it is inlined (Next.js).",
+      "AILP: missing OpenAI API key (experts and/or judge use OpenAI). Set NEXT_PUBLIC_OPENAI_API_KEY (or VITE_OPENAI_API_KEY), pass openaiApiKey to useAilp(), or adjust expertProvider/judgeProvider. Restart the dev server after changing env so it is inlined (Next.js).",
     );
   }
 
@@ -196,6 +205,8 @@ export function resolveAilpConfigFromEnv(overrides?: Partial<AilpOptions>): Ailp
     programId,
     frameworks,
     provider,
+    expertProvider,
+    judgeProvider,
     geminiApiKey,
     openaiApiKey,
     timeoutMs: overrides?.timeoutMs,
@@ -240,6 +251,8 @@ export function useAilp(options?: UseAilpOptions): UseAilpResult {
   const frameworks = options?.frameworks;
   const timeoutMs = options?.timeoutMs;
   const provider = options?.provider;
+  const expertProvider = options?.expertProvider;
+  const judgeProvider = options?.judgeProvider;
   const geminiApiKey = options?.geminiApiKey;
   const openaiApiKey = options?.openaiApiKey;
 
@@ -251,6 +264,8 @@ export function useAilp(options?: UseAilpOptions): UseAilpResult {
         frameworks,
         timeoutMs,
         provider,
+        expertProvider,
+        judgeProvider,
         geminiApiKey,
         openaiApiKey,
       }),
@@ -260,6 +275,8 @@ export function useAilp(options?: UseAilpOptions): UseAilpResult {
       frameworksDepKey(frameworks),
       timeoutMs,
       provider,
+      expertProvider,
+      judgeProvider,
       geminiApiKey,
       openaiApiKey,
     ],

@@ -35,7 +35,9 @@ export function createAilp(options) {
             output,
             modelTested: callOptions?.model,
             framework: options.frameworks,
-            ...(options.provider ? { provider: options.provider } : {}),
+            ...(options.provider !== undefined ? { provider: options.provider } : {}),
+            ...(options.expertProvider !== undefined ? { expertProvider: options.expertProvider } : {}),
+            ...(options.judgeProvider !== undefined ? { judgeProvider: options.judgeProvider } : {}),
             ..._buildAirtaBlock(options),
         };
         return client.assess(entry, {
