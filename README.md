@@ -224,9 +224,9 @@ function ChatWidget() {
 | Variable | Required | Default |
 |----------|----------|---------|
 | `NEXT_PUBLIC_AILP_BASE_URL` or `VITE_AILP_BASE_URL` | No | Local dev: `http://127.0.0.1:8000`. Hosted: `https://airtasystems.com/ailp` |
-| `NEXT_PUBLIC_AILP_PROVIDER` or `VITE_AILP_PROVIDER` | No | `gemini` |
-| `NEXT_PUBLIC_GEMINI_API_KEY` or `VITE_GEMINI_API_KEY` | Yes when provider is `gemini` | — |
-| `NEXT_PUBLIC_OPENAI_API_KEY` or `VITE_OPENAI_API_KEY` | Yes when provider is `openai` | — |
+| `NEXT_PUBLIC_AILP_PROVIDER` or `VITE_AILP_PROVIDER` | No | Omit so the **AILP server** picks expert/judge (and API keys) from its own config — use this for production browser apps against a hosted AILP. Set `gemini` or `openai` only when the client must send `X-*-Api-Key` headers. |
+| `NEXT_PUBLIC_GEMINI_API_KEY` or `VITE_GEMINI_API_KEY` | Only if provider (or split expert/judge env) is `gemini` | — |
+| `NEXT_PUBLIC_OPENAI_API_KEY` or `VITE_OPENAI_API_KEY` | Only if provider (or split expert/judge env) is `openai` | — |
 | `NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID` or `VITE_AIRTASYSTEMS_PROGRAM_ID` | No | — (omitted from the payload when unset) |
 | `NEXT_PUBLIC_AILP_FRAMEWORKS` or `VITE_AILP_FRAMEWORKS` | No | `eu-ai-act` |
 

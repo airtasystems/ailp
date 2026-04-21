@@ -143,7 +143,8 @@ export interface AilpOptions {
     /** Framework slug(s) to run. */
     frameworks: AilpFrameworkSlug | AilpFrameworkSlug[];
     /**
-     * Which LLM AILP uses internally (expert + judge pipeline). Defaults to `gemini`.
+     * Which LLM AILP uses internally (expert + judge pipeline).
+     * Omit so the server applies its own default (and can use server-side API keys).
      */
     provider?: AilpProvider;
     expertProvider?: AilpProvider;

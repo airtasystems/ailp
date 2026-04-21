@@ -134,8 +134,10 @@ export function parseFrameworksFromEnv(raw: string | undefined): AilpFrameworkSl
  * Resolve config from optional overrides + environment variables.
  *
  * - `programId` is optional; omitted from the payload if unset.
- * - `provider` defaults to `"gemini"` if neither override nor env specifies one.
- * - Throws if the resolved provider requires an API key that was not supplied.
+ * - `provider` is omitted when neither override nor env sets it — the server uses
+ *   its configured expert/judge pipeline and no client API key is required.
+ * - When `provider` / `expertProvider` / `judgeProvider` explicitly name `gemini`
+ *   or `openai`, the matching API key must be supplied (env or override).
  */
 export function resolveAilpConfigFromEnv(overrides?: Partial<AilpOptions>): AilpOptions {
   const next = readNextPublicEnv();
@@ -164,14 +166,15 @@ export function resolveAilpConfigFromEnv(overrides?: Partial<AilpOptions>): Ailp
     frameworks = parseFrameworksFromEnv(raw) ?? ["eu-ai-act"];
   }
 
-  const provider: AilpProvider =
+  const provider: AilpProvider | undefined =
     overrides?.provider ??
     coerceProvider(next.provider) ??
-    coerceProvider(vite.provider) ??
-    "gemini";
+    coerceProvider(vite.provider);
 
-  const expertProvider: AilpProvider = overrides?.expertProvider ?? provider;
-  const judgeProvider: AilpProvider = overrides?.judgeProvider ?? provider;
+  const expertProvider: AilpProvider | undefined =
+    overrides?.expertProvider ?? provider;
+  const judgeProvider: AilpProvider | undefined =
+    overrides?.judgeProvider ?? provider;
 
   const geminiApiKey =
     overrides?.geminiApiKey ??
@@ -188,7 +191,7 @@ export function resolveAilpConfigFromEnv(overrides?: Partial<AilpOptions>): Ailp
     (geminiApiKey == null || geminiApiKey.trim() === "")
   ) {
     throw new Error(
-      "AILP: missing Gemini API key (experts and/or judge use Gemini). Set NEXT_PUBLIC_GEMINI_API_KEY (or VITE_GEMINI_API_KEY), pass geminiApiKey to useAilp(), or adjust expertProvider/judgeProvider. Restart the dev server after changing env so it is inlined (Next.js).",
+      "AILP: missing Gemini API key (experts and/or judge use Gemini). Set NEXT_PUBLIC_GEMINI_API_KEY (or VITE_GEMINI_API_KEY), pass geminiApiKey to useAilp(), or adjust expertProvider/judgeProvider. If the AILP server holds keys, omit NEXT_PUBLIC_AILP_PROVIDER (and split provider env vars) so the client does not assert a vendor. Restart the dev server after changing env so it is inlined (Next.js).",
     );
   }
   if (
@@ -196,7 +199,7 @@ export function resolveAilpConfigFromEnv(overrides?: Partial<AilpOptions>): Ailp
     (openaiApiKey == null || openaiApiKey.trim() === "")
   ) {
     throw new Error(
-      "AILP: missing OpenAI API key (experts and/or judge use OpenAI). Set NEXT_PUBLIC_OPENAI_API_KEY (or VITE_OPENAI_API_KEY), pass openaiApiKey to useAilp(), or adjust expertProvider/judgeProvider. Restart the dev server after changing env so it is inlined (Next.js).",
+      "AILP: missing OpenAI API key (experts and/or judge use OpenAI). Set NEXT_PUBLIC_OPENAI_API_KEY (or VITE_OPENAI_API_KEY), pass openaiApiKey to useAilp(), or adjust expertProvider/judgeProvider. If the AILP server holds keys, omit NEXT_PUBLIC_AILP_PROVIDER (and split provider env vars) so the client does not assert a vendor. Restart the dev server after changing env so it is inlined (Next.js).",
     );
   }
 
@@ -233,11 +236,11 @@ export type UseAilpResult = UseAssessState & { ailp: AilpFn };
  * One-liner for React apps: memoized `createAilp` + assessment state.
  * Reads `NEXT_PUBLIC_*` (Next.js) or `VITE_*` (Vite) when options are omitted.
  *
- * Env vars (all optional except the API key required by the chosen provider):
+ * Env vars (all optional; API keys only required when you set a provider in env or options):
  * - `NEXT_PUBLIC_AILP_BASE_URL` / `VITE_AILP_BASE_URL` — default `http://127.0.0.1:8000`; hosted example `https://airtasystems.com/ailp-server` (no trailing slash)
- * - `NEXT_PUBLIC_AILP_PROVIDER` / `VITE_AILP_PROVIDER` — `gemini` (default) or `openai`
- * - `NEXT_PUBLIC_GEMINI_API_KEY` / `VITE_GEMINI_API_KEY` — required if provider is `gemini`
- * - `NEXT_PUBLIC_OPENAI_API_KEY` / `VITE_OPENAI_API_KEY` — required if provider is `openai`
+ * - `NEXT_PUBLIC_AILP_PROVIDER` / `VITE_AILP_PROVIDER` — omit to let the **server** use its configured expert/judge (no browser API key). Set to `gemini` or `openai` only when the client must send `X-*-Api-Key` headers.
+ * - `NEXT_PUBLIC_GEMINI_API_KEY` / `VITE_GEMINI_API_KEY` — required when provider (or split experts/judge) uses `gemini`
+ * - `NEXT_PUBLIC_OPENAI_API_KEY` / `VITE_OPENAI_API_KEY` — required when provider (or split experts/judge) uses `openai`
  * - `NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID` / `VITE_AIRTASYSTEMS_PROGRAM_ID` — optional
  * - `NEXT_PUBLIC_AILP_FRAMEWORKS` / `VITE_AILP_FRAMEWORKS` — comma-separated or JSON array; default `eu-ai-act`
  *
