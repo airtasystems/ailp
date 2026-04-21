@@ -169,8 +169,11 @@ export type AilpAssessStreamEvent =
 // -------------------------------------------------------------------------
 
 export interface AilpOptions {
-  /** Base URL of the AILP server (no trailing slash). */
-  baseUrl: string;
+  /**
+   * Base URL of the AILP server (no trailing slash).
+   * Omit to use the package default `AILP_DEFAULT_BASE_URL` (AIRTA public deployment).
+   */
+  baseUrl?: string;
   /** Optional AIRTA Systems program ID. Omitted from the payload when not set. */
   programId?: string;
   /** Framework slug(s) to run. */

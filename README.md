@@ -8,7 +8,7 @@
 
 Sends your LLM interactions to the [AIRTA Systems AILP](https://github.com/airtasystems/ailp-server) server for automated compliance scoring against frameworks like EU AI Act, OWASP LLM Top 10, NIST AI RMF, and more. Works with any LLM provider. No runtime dependencies — uses native `fetch`.
 
-**Hosted server:** AIRTA runs a deployment at [https://airtasystems.com/ailp](https://airtasystems.com/ailp). Use that string as `baseUrl` (no trailing slash — the client appends `/assess`, `/assess/stream`, `/health`, and so on). For React, set `NEXT_PUBLIC_AILP_BASE_URL` or `VITE_AILP_BASE_URL` to the same value when you are not pointing at a local instance.
+**Hosted server:** AIRTA runs a deployment at [https://airtasystems.com/ailp](https://airtasystems.com/ailp). The package default is **`AILP_DEFAULT_BASE_URL`** (`https://airtasystems.com/ailp`, no trailing slash — paths like `/assess`, `/assess/stream`, `/health` are appended for you). You do **not** need `NEXT_PUBLIC_AILP_BASE_URL` / `VITE_AILP_BASE_URL` unless you use a different origin (self-hosted or local). For **`AilpClient`**, pass `baseUrl: AILP_DEFAULT_BASE_URL` or any other origin.
 
 ## Install
 
@@ -18,7 +18,7 @@ npm install @airtasystems/ailp
 
 ## Quick start
 
-Examples use the **hosted** `baseUrl` from above. If the API runs on your machine or in Docker, use `http://localhost:8000` or your service hostname (for example `http://ailp-server:8000`) instead.
+`createAilp()` and `useAilp()` default to the hosted API above — **omit `baseUrl`** (and the base URL env vars) unless you target another server. For local or Docker, pass `baseUrl: "http://127.0.0.1:8000"` (or your service URL).
 
 Configure once:
 
@@ -26,7 +26,6 @@ Configure once:
 import { createAilp } from "@airtasystems/ailp";
 
 const ailp = createAilp({
-  baseUrl: "https://airtasystems.com/ailp",
   frameworks: ["eu-ai-act", "owasp-llm"],
   // Pick which LLM AILP uses internally (expert + judge). Defaults to "gemini".
   provider: "gemini",
@@ -60,7 +59,6 @@ AILP uses Gemini or OpenAI as its expert + judge LLM. Pick per-client with `prov
 ```typescript
 // OpenAI
 const ailp = createAilp({
-  baseUrl: "https://airtasystems.com/ailp",
   frameworks: ["eu-ai-act"],
   provider: "openai",
   openaiApiKey: process.env.OPENAI_API_KEY,
@@ -82,10 +80,10 @@ On the **server**, you can omit `provider` (and split fields) from JSON and set 
 `POST /assess/stream` returns **NDJSON** (one JSON object per line) so clients can show progress while experts and the judge run. **`AilpClient.assessStream()`** calls that endpoint, invokes an optional **`onEvent`** callback for each `meta`, `cached`, `phase`, `expert`, and `judge` line, then resolves with the same object shape as **`assess()`** (parsed from the final `done` line).
 
 ```typescript
-import { AilpClient } from "@airtasystems/ailp";
+import { AilpClient, AILP_DEFAULT_BASE_URL } from "@airtasystems/ailp";
 
 const client = new AilpClient({
-  baseUrl: "https://airtasystems.com/ailp",
+  baseUrl: AILP_DEFAULT_BASE_URL,
   timeoutMs: 120_000,
 });
 
@@ -138,9 +136,9 @@ const res = await ailp(messages, output);
 Assessment runs in the background — your LLM response is never blocked or delayed:
 
 ```typescript
-import { wrapOpenAI, AilpClient } from "@airtasystems/ailp";
+import { wrapOpenAI, AilpClient, AILP_DEFAULT_BASE_URL } from "@airtasystems/ailp";
 
-const client = new AilpClient({ baseUrl: "https://airtasystems.com/ailp" });
+const client = new AilpClient({ baseUrl: AILP_DEFAULT_BASE_URL });
 
 const response = await wrapOpenAI(
   (p) => openai.chat.completions.create(p),
@@ -160,9 +158,9 @@ const response = await wrapOpenAI(
 Use `wrapLlmCall` for any async LLM function:
 
 ```typescript
-import { wrapLlmCall, AilpClient } from "@airtasystems/ailp";
+import { wrapLlmCall, AilpClient, AILP_DEFAULT_BASE_URL } from "@airtasystems/ailp";
 
-const client = new AilpClient({ baseUrl: "https://airtasystems.com/ailp" });
+const client = new AilpClient({ baseUrl: AILP_DEFAULT_BASE_URL });
 
 const response = await wrapLlmCall(
   (p) => anthropic.messages.create(p),
@@ -223,7 +221,7 @@ function ChatWidget() {
 
 | Variable | Required | Default |
 |----------|----------|---------|
-| `NEXT_PUBLIC_AILP_BASE_URL` or `VITE_AILP_BASE_URL` | No | Local dev: `http://127.0.0.1:8000`. Hosted: `https://airtasystems.com/ailp` |
+| `NEXT_PUBLIC_AILP_BASE_URL` or `VITE_AILP_BASE_URL` | No | `AILP_DEFAULT_BASE_URL` (`https://airtasystems.com/ailp`). Set only for self-hosted / local (e.g. `http://127.0.0.1:8000`) |
 | `NEXT_PUBLIC_AILP_PROVIDER` or `VITE_AILP_PROVIDER` | No | Omit so the **AILP server** picks expert/judge (and API keys) from its own config — use this for production browser apps against a hosted AILP. Set `gemini` or `openai` only when the client must send `X-*-Api-Key` headers. |
 | `NEXT_PUBLIC_GEMINI_API_KEY` or `VITE_GEMINI_API_KEY` | Only if provider (or split expert/judge env) is `gemini` | — |
 | `NEXT_PUBLIC_OPENAI_API_KEY` or `VITE_OPENAI_API_KEY` | Only if provider (or split expert/judge env) is `openai` | — |
@@ -257,7 +255,6 @@ import { createAilp } from "@airtasystems/ailp";
 import { useAssess } from "@airtasystems/ailp/react";
 
 const ailp = createAilp({
-  baseUrl,
   frameworks,
   provider: "gemini",
   geminiApiKey: process.env.GEMINI_API_KEY,

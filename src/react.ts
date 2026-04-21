@@ -19,6 +19,7 @@
  * const { assess, result, loading, error } = useAssess(ailp);
  */
 import { useCallback, useMemo, useState } from "react";
+import { AILP_DEFAULT_BASE_URL } from "./constants.js";
 import { createAilp } from "./ailp.js";
 import type { AilpFn } from "./ailp.js";
 import type {
@@ -147,7 +148,7 @@ export function resolveAilpConfigFromEnv(overrides?: Partial<AilpOptions>): Ailp
     overrides?.baseUrl ??
     nonempty(next.baseUrl) ??
     nonempty(vite.baseUrl) ??
-    "http://127.0.0.1:8000";
+    AILP_DEFAULT_BASE_URL;
 
   const programIdRaw =
     overrides?.programId ??
@@ -237,7 +238,7 @@ export type UseAilpResult = UseAssessState & { ailp: AilpFn };
  * Reads `NEXT_PUBLIC_*` (Next.js) or `VITE_*` (Vite) when options are omitted.
  *
  * Env vars (all optional; API keys only required when you set a provider in env or options):
- * - `NEXT_PUBLIC_AILP_BASE_URL` / `VITE_AILP_BASE_URL` — default `http://127.0.0.1:8000`; hosted example `https://airtasystems.com/ailp-server` (no trailing slash)
+ * - `NEXT_PUBLIC_AILP_BASE_URL` / `VITE_AILP_BASE_URL` — omit to use `AILP_DEFAULT_BASE_URL` (`https://airtasystems.com/ailp`, no trailing slash)
  * - `NEXT_PUBLIC_AILP_PROVIDER` / `VITE_AILP_PROVIDER` — omit to let the **server** use its configured expert/judge (no browser API key). Set to `gemini` or `openai` only when the client must send `X-*-Api-Key` headers.
  * - `NEXT_PUBLIC_GEMINI_API_KEY` / `VITE_GEMINI_API_KEY` — required when provider (or split experts/judge) uses `gemini`
  * - `NEXT_PUBLIC_OPENAI_API_KEY` / `VITE_OPENAI_API_KEY` — required when provider (or split experts/judge) uses `openai`
@@ -345,3 +346,5 @@ export function useAssess(ailp: AilpFn): UseAssessState {
 
   return { result, loading, error, assess, reset };
 }
+
+export { AILP_DEFAULT_BASE_URL } from "./constants.js";

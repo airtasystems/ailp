@@ -1,3 +1,4 @@
+export { AILP_DEFAULT_BASE_URL } from "./constants.js";
 export { createAilp } from "./ailp.js";
 export type { AilpFn } from "./ailp.js";
 

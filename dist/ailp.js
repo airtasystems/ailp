@@ -1,19 +1,19 @@
+import { AILP_DEFAULT_BASE_URL } from "./constants.js";
 import { AilpClient } from "./client.js";
 /**
  * Create a pre-configured AILP assess function.
  * Call createAilp() once at startup, then drop the returned function
  * in after any LLM call.
  *
- * @example Gemini (default provider)
+ * @example Gemini (default provider; `baseUrl` omitted — uses AIRTA public deployment)
  * const ailp = createAilp({
- *   baseUrl: "https://airtasystems.com/ailp-server",
  *   frameworks: ["eu-ai-act", "owasp-llm"],
  *   geminiApiKey: process.env.GEMINI_API_KEY,
  * });
  *
- * @example OpenAI
+ * @example Self-hosted or local — pass `baseUrl`
  * const ailp = createAilp({
- *   baseUrl: "https://airtasystems.com/ailp-server",
+ *   baseUrl: "http://127.0.0.1:8000",
  *   frameworks: ["eu-ai-act"],
  *   provider: "openai",
  *   openaiApiKey: process.env.OPENAI_API_KEY,
@@ -24,8 +24,9 @@ import { AilpClient } from "./client.js";
  * console.log(res.risk_level);
  */
 export function createAilp(options) {
+    const baseUrl = (options.baseUrl ?? AILP_DEFAULT_BASE_URL).replace(/\/$/, "");
     const client = new AilpClient({
-        baseUrl: options.baseUrl,
+        baseUrl,
         timeoutMs: options.timeoutMs,
     });
     return function ailp(messages, output, callOptions) {
