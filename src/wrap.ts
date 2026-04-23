@@ -13,10 +13,18 @@ import type {
 
 export interface WrapOptions {
   client: AilpClient;
+  /**
+   * **Required.** AILP API key from ailp.airtasystems.com
+   * (sent as `Airta-Api-Key`).
+   */
+  apiKey: string;
+  /**
+   * **Required.** AIRTA Systems program ID
+   * (sent as `Airta-Program-Id` and echoed under `airtasystems.programId`).
+   */
+  programId: string;
   /** Framework slug(s) to assess against. */
   frameworks?: AilpFrameworkSlug | AilpFrameworkSlug[];
-  /** Optional AIRTA Systems program ID. Omitted from the payload when not set. */
-  programId?: string;
   /** Which LLM AILP should use (expert + judge). Defaults to server's `gemini`. */
   provider?: AilpProvider;
   /** Gemini API key (only sent when `provider === "gemini"`). */
@@ -112,16 +120,12 @@ export async function wrapLlmCall<TParams, TResult>(
   return result;
 }
 
-/** Build the optional `airtasystems` routing block, omitted entirely when empty. */
+/** Build the `airtasystems` routing block — `programId` is required in v1.0. */
 function _buildAirtaBlock(options: WrapOptions): Pick<AilpLogEntry, "airtasystems"> {
-  const hasProgramId =
-    options.programId != null && String(options.programId).trim() !== "";
-  const hasFrameworks = options.frameworks !== undefined;
-  if (!hasProgramId && !hasFrameworks) return {};
   return {
     airtasystems: {
-      ...(hasProgramId ? { programId: options.programId } : {}),
-      ...(hasFrameworks ? { frameworks: options.frameworks } : {}),
+      programId: options.programId,
+      ...(options.frameworks !== undefined ? { frameworks: options.frameworks } : {}),
     },
   };
 }
@@ -168,7 +172,12 @@ export interface OpenAIWrapOptions extends WrapOptions {
  * const response = await wrapOpenAI(
  *   (p) => openai.chat.completions.create(p),
  *   { model: "gpt-4o-mini", messages },
- *   { client, programId: "my-program", frameworks: ["eu-ai-act"] }
+ *   {
+ *     client,
+ *     apiKey: process.env.AILP_API_KEY!,
+ *     programId: process.env.AIRTASYSTEMS_PROGRAM_ID!,
+ *     frameworks: ["eu-ai-act"],
+ *   }
  * );
  */
 export async function wrapOpenAI<T extends OpenAIChatParams>(
@@ -208,6 +217,8 @@ function _fireAssess(entry: AilpLogEntry, options: WrapOptions): void {
 
   options.client
     .assess(entry, {
+      apiKey: options.apiKey,
+      programId: options.programId,
       geminiApiKey: options.geminiApiKey,
       openaiApiKey: options.openaiApiKey,
     })

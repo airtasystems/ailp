@@ -42,16 +42,12 @@ export async function wrapLlmCall(fn, params, options) {
     _fireAssess(entry, options);
     return result;
 }
-/** Build the optional `airtasystems` routing block, omitted entirely when empty. */
+/** Build the `airtasystems` routing block — `programId` is required in v1.0. */
 function _buildAirtaBlock(options) {
-    const hasProgramId = options.programId != null && String(options.programId).trim() !== "";
-    const hasFrameworks = options.frameworks !== undefined;
-    if (!hasProgramId && !hasFrameworks)
-        return {};
     return {
         airtasystems: {
-            ...(hasProgramId ? { programId: options.programId } : {}),
-            ...(hasFrameworks ? { frameworks: options.frameworks } : {}),
+            programId: options.programId,
+            ...(options.frameworks !== undefined ? { frameworks: options.frameworks } : {}),
         },
     };
 }
@@ -63,7 +59,12 @@ function _buildAirtaBlock(options) {
  * const response = await wrapOpenAI(
  *   (p) => openai.chat.completions.create(p),
  *   { model: "gpt-4o-mini", messages },
- *   { client, programId: "my-program", frameworks: ["eu-ai-act"] }
+ *   {
+ *     client,
+ *     apiKey: process.env.AILP_API_KEY!,
+ *     programId: process.env.AIRTASYSTEMS_PROGRAM_ID!,
+ *     frameworks: ["eu-ai-act"],
+ *   }
  * );
  */
 export async function wrapOpenAI(fn, params, options) {
@@ -93,6 +94,8 @@ function _fireAssess(entry, options) {
         });
     options.client
         .assess(entry, {
+        apiKey: options.apiKey,
+        programId: options.programId,
         geminiApiKey: options.geminiApiKey,
         openaiApiKey: options.openaiApiKey,
     })

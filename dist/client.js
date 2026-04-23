@@ -1,32 +1,41 @@
+function trimOrEmpty(v) {
+    return typeof v === "string" ? v.trim() : "";
+}
 /**
- * Build `X-*-Api-Key` headers for an assess request. Sends **both** keys when
- * experts and judge use different vendors (`expertProvider` / `judgeProvider`).
- * When `provider` and split fields are all omitted (server uses `.config` defaults),
- * sends any non-empty keys from `auth` so mixed pipelines still work.
+ * Build the full set of auth headers for an assess request:
+ * - Always sends `Airta-Api-Key` / `Airta-Program-Id` when provided (both are
+ *   required by the AILP server; non-empty values are forwarded verbatim).
+ * - Sends `X-Gemini-Api-Key` / `X-OpenAI-Api-Key` for whichever provider the
+ *   entry targets (experts and/or judge). When neither is set (server-side
+ *   defaults), any non-empty LLM keys are forwarded so mixed pipelines work.
  */
 export function buildProviderAuthHeaders(entry, auth) {
     if (!auth)
         return {};
     const headers = {};
+    const airtaApiKey = trimOrEmpty(auth.apiKey);
+    if (airtaApiKey)
+        headers["Airta-Api-Key"] = airtaApiKey;
+    const airtaProgramId = trimOrEmpty(auth.programId);
+    if (airtaProgramId)
+        headers["Airta-Program-Id"] = airtaProgramId;
     const expertP = entry.expertProvider ?? entry.provider;
     const judgeP = entry.judgeProvider ?? entry.provider;
     const gemini = expertP === "gemini" || judgeP === "gemini";
     const openai = expertP === "openai" || judgeP === "openai";
+    const geminiKey = trimOrEmpty(auth.geminiApiKey);
+    const openaiKey = trimOrEmpty(auth.openaiApiKey);
     if (!gemini && !openai) {
-        if (auth.geminiApiKey && auth.geminiApiKey.trim() !== "") {
-            headers["X-Gemini-Api-Key"] = auth.geminiApiKey.trim();
-        }
-        if (auth.openaiApiKey && auth.openaiApiKey.trim() !== "") {
-            headers["X-OpenAI-Api-Key"] = auth.openaiApiKey.trim();
-        }
+        if (geminiKey)
+            headers["X-Gemini-Api-Key"] = geminiKey;
+        if (openaiKey)
+            headers["X-OpenAI-Api-Key"] = openaiKey;
         return headers;
     }
-    if (gemini && auth.geminiApiKey && auth.geminiApiKey.trim() !== "") {
-        headers["X-Gemini-Api-Key"] = auth.geminiApiKey.trim();
-    }
-    if (openai && auth.openaiApiKey && auth.openaiApiKey.trim() !== "") {
-        headers["X-OpenAI-Api-Key"] = auth.openaiApiKey.trim();
-    }
+    if (gemini && geminiKey)
+        headers["X-Gemini-Api-Key"] = geminiKey;
+    if (openai && openaiKey)
+        headers["X-OpenAI-Api-Key"] = openaiKey;
     return headers;
 }
 function isRecord(x) {

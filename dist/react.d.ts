@@ -11,9 +11,9 @@ export declare function parseFrameworksFromEnv(raw: string | undefined): AilpFra
 /**
  * Resolve config from optional overrides + environment variables.
  *
- * - `programId` is optional; omitted from the payload if unset.
+ * - `apiKey` and `programId` are **required** (get both at ailp.airtasystems.com).
  * - `provider` is omitted when neither override nor env sets it — the server uses
- *   its configured expert/judge pipeline and no client API key is required.
+ *   its configured expert/judge pipeline and no client provider key is required.
  * - When `provider` / `expertProvider` / `judgeProvider` explicitly name `gemini`
  *   or `openai`, the matching API key must be supplied (env or override).
  */
@@ -27,12 +27,13 @@ export type UseAilpResult = UseAssessState & {
  * One-liner for React apps: memoized `createAilp` + assessment state.
  * Reads `NEXT_PUBLIC_*` (Next.js) or `VITE_*` (Vite) when options are omitted.
  *
- * Env vars (all optional; API keys only required when you set a provider in env or options):
- * - `NEXT_PUBLIC_AILP_BASE_URL` / `VITE_AILP_BASE_URL` — omit to use `AILP_DEFAULT_BASE_URL` (`https://airtasystems.com/ailp`, no trailing slash)
- * - `NEXT_PUBLIC_AILP_PROVIDER` / `VITE_AILP_PROVIDER` — omit to let the **server** use its configured expert/judge (no browser API key). Set to `gemini` or `openai` only when the client must send `X-*-Api-Key` headers.
+ * Env vars:
+ * - `NEXT_PUBLIC_AILP_API_KEY` / `VITE_AILP_API_KEY` — **required** (ailp.airtasystems.com)
+ * - `NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID` / `VITE_AIRTASYSTEMS_PROGRAM_ID` — **required**
+ * - `NEXT_PUBLIC_AILP_BASE_URL` / `VITE_AILP_BASE_URL` — omit to use `AILP_DEFAULT_BASE_URL` (`https://ailp.airtasystems.com`, no trailing slash)
+ * - `NEXT_PUBLIC_AILP_PROVIDER` / `VITE_AILP_PROVIDER` — omit to let the **server** use its configured expert/judge (no browser LLM key). Set to `gemini` or `openai` only when the client must send `X-*-Api-Key` headers.
  * - `NEXT_PUBLIC_GEMINI_API_KEY` / `VITE_GEMINI_API_KEY` — required when provider (or split experts/judge) uses `gemini`
  * - `NEXT_PUBLIC_OPENAI_API_KEY` / `VITE_OPENAI_API_KEY` — required when provider (or split experts/judge) uses `openai`
- * - `NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID` / `VITE_AIRTASYSTEMS_PROGRAM_ID` — optional
  * - `NEXT_PUBLIC_AILP_FRAMEWORKS` / `VITE_AILP_FRAMEWORKS` — comma-separated or JSON array; default `eu-ai-act`
  *
  * Security note: `NEXT_PUBLIC_*` / `VITE_*` variables are baked into the browser

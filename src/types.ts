@@ -174,8 +174,17 @@ export interface AilpOptions {
    * Omit to use the package default `AILP_DEFAULT_BASE_URL` (AIRTA public deployment).
    */
   baseUrl?: string;
-  /** Optional AIRTA Systems program ID. Omitted from the payload when not set. */
-  programId?: string;
+  /**
+   * **Required.** AILP API key issued by ailp.airtasystems.com. Sent as the
+   * `Airta-Api-Key` request header. Pair with {@link programId} — both are
+   * required by the server.
+   */
+  apiKey: string;
+  /**
+   * **Required.** AIRTA Systems program ID. Sent as the `Airta-Program-Id`
+   * request header and echoed in the payload under `airtasystems.programId`.
+   */
+  programId: string;
   /** Framework slug(s) to run. */
   frameworks: AilpFrameworkSlug | AilpFrameworkSlug[];
   /**

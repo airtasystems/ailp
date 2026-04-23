@@ -5,15 +5,21 @@ import { AilpClient } from "./client.js";
  * Call createAilp() once at startup, then drop the returned function
  * in after any LLM call.
  *
- * @example Gemini (default provider; `baseUrl` omitted — uses AIRTA public deployment)
+ * `apiKey` and `programId` are **required**: they authenticate the caller
+ * with the AILP service (`Airta-Api-Key` / `Airta-Program-Id` headers).
+ * Get both from https://ailp.airtasystems.com.
+ *
+ * @example Minimal — server-side expert/judge keys, hosted AILP
  * const ailp = createAilp({
+ *   apiKey: process.env.AILP_API_KEY!,
+ *   programId: process.env.AIRTASYSTEMS_PROGRAM_ID!,
  *   frameworks: ["eu-ai-act", "owasp-llm"],
- *   geminiApiKey: process.env.GEMINI_API_KEY,
  * });
  *
- * @example Self-hosted or local — pass `baseUrl`
+ * @example Client-supplied provider keys
  * const ailp = createAilp({
- *   baseUrl: "http://127.0.0.1:8000",
+ *   apiKey: process.env.AILP_API_KEY!,
+ *   programId: process.env.AIRTASYSTEMS_PROGRAM_ID!,
  *   frameworks: ["eu-ai-act"],
  *   provider: "openai",
  *   openaiApiKey: process.env.OPENAI_API_KEY,
@@ -24,6 +30,14 @@ import { AilpClient } from "./client.js";
  * console.log(res.risk_level);
  */
 export function createAilp(options) {
+    const apiKey = typeof options.apiKey === "string" ? options.apiKey.trim() : "";
+    if (!apiKey) {
+        throw new Error("createAilp: `apiKey` is required. Get a key at https://ailp.airtasystems.com and pass it via `apiKey` (or set AILP_API_KEY / NEXT_PUBLIC_AILP_API_KEY / VITE_AILP_API_KEY for the React hook).");
+    }
+    const programId = typeof options.programId === "string" ? options.programId.trim() : "";
+    if (!programId) {
+        throw new Error("createAilp: `programId` is required. Copy your program ID from ailp.airtasystems.com and pass it via `programId` (or set AIRTASYSTEMS_PROGRAM_ID / NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID / VITE_AIRTASYSTEMS_PROGRAM_ID for the React hook).");
+    }
     const baseUrl = (options.baseUrl ?? AILP_DEFAULT_BASE_URL).replace(/\/$/, "");
     const client = new AilpClient({
         baseUrl,
@@ -39,25 +53,17 @@ export function createAilp(options) {
             ...(options.provider !== undefined ? { provider: options.provider } : {}),
             ...(options.expertProvider !== undefined ? { expertProvider: options.expertProvider } : {}),
             ...(options.judgeProvider !== undefined ? { judgeProvider: options.judgeProvider } : {}),
-            ..._buildAirtaBlock(options),
+            airtasystems: {
+                programId,
+                ...(options.frameworks !== undefined ? { frameworks: options.frameworks } : {}),
+            },
         };
         return client.assess(entry, {
+            apiKey,
+            programId,
             geminiApiKey: options.geminiApiKey,
             openaiApiKey: options.openaiApiKey,
         });
-    };
-}
-/** Build the optional `airtasystems` routing block, omitted entirely when empty. */
-function _buildAirtaBlock(options) {
-    const hasProgramId = options.programId != null && String(options.programId).trim() !== "";
-    const hasFrameworks = options.frameworks !== undefined;
-    if (!hasProgramId && !hasFrameworks)
-        return {};
-    return {
-        airtasystems: {
-            ...(hasProgramId ? { programId: options.programId } : {}),
-            ...(hasFrameworks ? { frameworks: options.frameworks } : {}),
-        },
     };
 }
 //# sourceMappingURL=ailp.js.map

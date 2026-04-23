@@ -6,17 +6,33 @@ import type {
   AilpProvider,
 } from "./types.js";
 
-/** Extra headers sent alongside a single `assess()` call (e.g. provider API keys). */
+/**
+ * Extra headers sent alongside a single `assess()` call.
+ * - `apiKey` / `programId` are **required** by the AILP server (routed to
+ *   `Airta-Api-Key` / `Airta-Program-Id`).
+ * - `geminiApiKey` / `openaiApiKey` are forwarded as `X-*-Api-Key` only when
+ *   the request's provider (or split experts/judge) names that vendor.
+ */
 export interface AilpAssessHeaders {
+  /** AILP API key from ailp.airtasystems.com. Sent as `Airta-Api-Key`. */
+  apiKey?: string;
+  /** AIRTA Systems program ID. Sent as `Airta-Program-Id`. */
+  programId?: string;
   geminiApiKey?: string;
   openaiApiKey?: string;
 }
 
+function trimOrEmpty(v: string | undefined): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
 /**
- * Build `X-*-Api-Key` headers for an assess request. Sends **both** keys when
- * experts and judge use different vendors (`expertProvider` / `judgeProvider`).
- * When `provider` and split fields are all omitted (server uses `.config` defaults),
- * sends any non-empty keys from `auth` so mixed pipelines still work.
+ * Build the full set of auth headers for an assess request:
+ * - Always sends `Airta-Api-Key` / `Airta-Program-Id` when provided (both are
+ *   required by the AILP server; non-empty values are forwarded verbatim).
+ * - Sends `X-Gemini-Api-Key` / `X-OpenAI-Api-Key` for whichever provider the
+ *   entry targets (experts and/or judge). When neither is set (server-side
+ *   defaults), any non-empty LLM keys are forwarded so mixed pipelines work.
  */
 export function buildProviderAuthHeaders(
   entry: Pick<AilpLogEntry, "provider" | "expertProvider" | "judgeProvider">,
@@ -24,25 +40,26 @@ export function buildProviderAuthHeaders(
 ): Record<string, string> {
   if (!auth) return {};
   const headers: Record<string, string> = {};
+
+  const airtaApiKey = trimOrEmpty(auth.apiKey);
+  if (airtaApiKey) headers["Airta-Api-Key"] = airtaApiKey;
+  const airtaProgramId = trimOrEmpty(auth.programId);
+  if (airtaProgramId) headers["Airta-Program-Id"] = airtaProgramId;
+
   const expertP = entry.expertProvider ?? entry.provider;
   const judgeP = entry.judgeProvider ?? entry.provider;
   const gemini = expertP === "gemini" || judgeP === "gemini";
   const openai = expertP === "openai" || judgeP === "openai";
+  const geminiKey = trimOrEmpty(auth.geminiApiKey);
+  const openaiKey = trimOrEmpty(auth.openaiApiKey);
+
   if (!gemini && !openai) {
-    if (auth.geminiApiKey && auth.geminiApiKey.trim() !== "") {
-      headers["X-Gemini-Api-Key"] = auth.geminiApiKey.trim();
-    }
-    if (auth.openaiApiKey && auth.openaiApiKey.trim() !== "") {
-      headers["X-OpenAI-Api-Key"] = auth.openaiApiKey.trim();
-    }
+    if (geminiKey) headers["X-Gemini-Api-Key"] = geminiKey;
+    if (openaiKey) headers["X-OpenAI-Api-Key"] = openaiKey;
     return headers;
   }
-  if (gemini && auth.geminiApiKey && auth.geminiApiKey.trim() !== "") {
-    headers["X-Gemini-Api-Key"] = auth.geminiApiKey.trim();
-  }
-  if (openai && auth.openaiApiKey && auth.openaiApiKey.trim() !== "") {
-    headers["X-OpenAI-Api-Key"] = auth.openaiApiKey.trim();
-  }
+  if (gemini && geminiKey) headers["X-Gemini-Api-Key"] = geminiKey;
+  if (openai && openaiKey) headers["X-OpenAI-Api-Key"] = openaiKey;
   return headers;
 }
 

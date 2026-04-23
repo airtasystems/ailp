@@ -1,14 +1,26 @@
 import type { AilpAssessResponse, AilpAssessStreamEvent, AilpClientOptions, AilpLogEntry } from "./types.js";
-/** Extra headers sent alongside a single `assess()` call (e.g. provider API keys). */
+/**
+ * Extra headers sent alongside a single `assess()` call.
+ * - `apiKey` / `programId` are **required** by the AILP server (routed to
+ *   `Airta-Api-Key` / `Airta-Program-Id`).
+ * - `geminiApiKey` / `openaiApiKey` are forwarded as `X-*-Api-Key` only when
+ *   the request's provider (or split experts/judge) names that vendor.
+ */
 export interface AilpAssessHeaders {
+    /** AILP API key from ailp.airtasystems.com. Sent as `Airta-Api-Key`. */
+    apiKey?: string;
+    /** AIRTA Systems program ID. Sent as `Airta-Program-Id`. */
+    programId?: string;
     geminiApiKey?: string;
     openaiApiKey?: string;
 }
 /**
- * Build `X-*-Api-Key` headers for an assess request. Sends **both** keys when
- * experts and judge use different vendors (`expertProvider` / `judgeProvider`).
- * When `provider` and split fields are all omitted (server uses `.config` defaults),
- * sends any non-empty keys from `auth` so mixed pipelines still work.
+ * Build the full set of auth headers for an assess request:
+ * - Always sends `Airta-Api-Key` / `Airta-Program-Id` when provided (both are
+ *   required by the AILP server; non-empty values are forwarded verbatim).
+ * - Sends `X-Gemini-Api-Key` / `X-OpenAI-Api-Key` for whichever provider the
+ *   entry targets (experts and/or judge). When neither is set (server-side
+ *   defaults), any non-empty LLM keys are forwarded so mixed pipelines work.
  */
 export declare function buildProviderAuthHeaders(entry: Pick<AilpLogEntry, "provider" | "expertProvider" | "judgeProvider">, auth: AilpAssessHeaders | undefined): Record<string, string>;
 export interface AilpAssessStreamOptions {

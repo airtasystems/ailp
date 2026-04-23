@@ -15,7 +15,7 @@
  * import { createAilp } from "@airtasystems/ailp";
  * import { useAssess } from "@airtasystems/ailp/react";
  *
- * const ailp = createAilp({ baseUrl, programId, frameworks });
+ * const ailp = createAilp({ apiKey, programId, frameworks });
  * const { assess, result, loading, error } = useAssess(ailp);
  */
 import { useCallback, useMemo, useState } from "react";
@@ -36,6 +36,7 @@ function coerceProvider(raw) {
 function readNextPublicEnv() {
     return {
         baseUrl: process.env.NEXT_PUBLIC_AILP_BASE_URL,
+        apiKey: process.env.NEXT_PUBLIC_AILP_API_KEY,
         programId: process.env.NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID,
         frameworks: process.env.NEXT_PUBLIC_AILP_FRAMEWORKS,
         provider: process.env.NEXT_PUBLIC_AILP_PROVIDER,
@@ -47,6 +48,7 @@ function readViteEnv() {
     // Next.js has `import.meta` but not `import.meta.env` — optional chaining avoids a throw.
     return {
         baseUrl: import.meta.env?.VITE_AILP_BASE_URL,
+        apiKey: import.meta.env?.VITE_AILP_API_KEY,
         programId: import.meta.env?.VITE_AIRTASYSTEMS_PROGRAM_ID,
         frameworks: import.meta.env?.VITE_AILP_FRAMEWORKS,
         provider: import.meta.env?.VITE_AILP_PROVIDER,
@@ -107,9 +109,9 @@ export function parseFrameworksFromEnv(raw) {
 /**
  * Resolve config from optional overrides + environment variables.
  *
- * - `programId` is optional; omitted from the payload if unset.
+ * - `apiKey` and `programId` are **required** (get both at ailp.airtasystems.com).
  * - `provider` is omitted when neither override nor env sets it — the server uses
- *   its configured expert/judge pipeline and no client API key is required.
+ *   its configured expert/judge pipeline and no client provider key is required.
  * - When `provider` / `expertProvider` / `judgeProvider` explicitly name `gemini`
  *   or `openai`, the matching API key must be supplied (env or override).
  */
@@ -120,12 +122,20 @@ export function resolveAilpConfigFromEnv(overrides) {
         nonempty(next.baseUrl) ??
         nonempty(vite.baseUrl) ??
         AILP_DEFAULT_BASE_URL;
+    const apiKeyRaw = overrides?.apiKey ??
+        nonempty(next.apiKey) ??
+        nonempty(vite.apiKey);
+    const apiKey = apiKeyRaw != null ? String(apiKeyRaw).trim() : "";
+    if (apiKey === "") {
+        throw new Error("AILP: missing `apiKey`. Get a key at https://ailp.airtasystems.com and set NEXT_PUBLIC_AILP_API_KEY (Next.js) or VITE_AILP_API_KEY (Vite), or pass `apiKey` to useAilp(). Restart the dev server after changing env so it is inlined. Security: browser-exposed keys are public — prefer calling AILP from a server route.");
+    }
     const programIdRaw = overrides?.programId ??
         nonempty(next.programId) ??
         nonempty(vite.programId);
-    const programId = programIdRaw != null && String(programIdRaw).trim() !== ""
-        ? String(programIdRaw).trim()
-        : undefined;
+    const programId = programIdRaw != null ? String(programIdRaw).trim() : "";
+    if (programId === "") {
+        throw new Error("AILP: missing `programId`. Copy your program ID from ailp.airtasystems.com and set NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID (Next.js) or VITE_AIRTASYSTEMS_PROGRAM_ID (Vite), or pass `programId` to useAilp().");
+    }
     let frameworks;
     if (overrides?.frameworks != null) {
         frameworks = overrides.frameworks;
@@ -155,6 +165,7 @@ export function resolveAilpConfigFromEnv(overrides) {
     }
     return {
         baseUrl: baseUrl.replace(/\/$/, ""),
+        apiKey,
         programId,
         frameworks,
         provider,
@@ -174,12 +185,13 @@ function frameworksDepKey(fw) {
  * One-liner for React apps: memoized `createAilp` + assessment state.
  * Reads `NEXT_PUBLIC_*` (Next.js) or `VITE_*` (Vite) when options are omitted.
  *
- * Env vars (all optional; API keys only required when you set a provider in env or options):
- * - `NEXT_PUBLIC_AILP_BASE_URL` / `VITE_AILP_BASE_URL` — omit to use `AILP_DEFAULT_BASE_URL` (`https://airtasystems.com/ailp`, no trailing slash)
- * - `NEXT_PUBLIC_AILP_PROVIDER` / `VITE_AILP_PROVIDER` — omit to let the **server** use its configured expert/judge (no browser API key). Set to `gemini` or `openai` only when the client must send `X-*-Api-Key` headers.
+ * Env vars:
+ * - `NEXT_PUBLIC_AILP_API_KEY` / `VITE_AILP_API_KEY` — **required** (ailp.airtasystems.com)
+ * - `NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID` / `VITE_AIRTASYSTEMS_PROGRAM_ID` — **required**
+ * - `NEXT_PUBLIC_AILP_BASE_URL` / `VITE_AILP_BASE_URL` — omit to use `AILP_DEFAULT_BASE_URL` (`https://ailp.airtasystems.com`, no trailing slash)
+ * - `NEXT_PUBLIC_AILP_PROVIDER` / `VITE_AILP_PROVIDER` — omit to let the **server** use its configured expert/judge (no browser LLM key). Set to `gemini` or `openai` only when the client must send `X-*-Api-Key` headers.
  * - `NEXT_PUBLIC_GEMINI_API_KEY` / `VITE_GEMINI_API_KEY` — required when provider (or split experts/judge) uses `gemini`
  * - `NEXT_PUBLIC_OPENAI_API_KEY` / `VITE_OPENAI_API_KEY` — required when provider (or split experts/judge) uses `openai`
- * - `NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID` / `VITE_AIRTASYSTEMS_PROGRAM_ID` — optional
  * - `NEXT_PUBLIC_AILP_FRAMEWORKS` / `VITE_AILP_FRAMEWORKS` — comma-separated or JSON array; default `eu-ai-act`
  *
  * Security note: `NEXT_PUBLIC_*` / `VITE_*` variables are baked into the browser
@@ -188,6 +200,7 @@ function frameworksDepKey(fw) {
  */
 export function useAilp(options) {
     const baseUrl = options?.baseUrl;
+    const apiKey = options?.apiKey;
     const programId = options?.programId;
     const frameworks = options?.frameworks;
     const timeoutMs = options?.timeoutMs;
@@ -198,6 +211,7 @@ export function useAilp(options) {
     const openaiApiKey = options?.openaiApiKey;
     const config = useMemo(() => resolveAilpConfigFromEnv({
         baseUrl,
+        apiKey,
         programId,
         frameworks,
         timeoutMs,
@@ -208,6 +222,7 @@ export function useAilp(options) {
         openaiApiKey,
     }), [
         baseUrl,
+        apiKey,
         programId,
         frameworksDepKey(frameworks),
         timeoutMs,

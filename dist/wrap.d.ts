@@ -2,10 +2,18 @@ import type { AilpClient } from "./client.js";
 import type { AilpAssessResponse, AilpFrameworkSlug, AilpLogEntry, AilpMessage, AilpProvider } from "./types.js";
 export interface WrapOptions {
     client: AilpClient;
+    /**
+     * **Required.** AILP API key from ailp.airtasystems.com
+     * (sent as `Airta-Api-Key`).
+     */
+    apiKey: string;
+    /**
+     * **Required.** AIRTA Systems program ID
+     * (sent as `Airta-Program-Id` and echoed under `airtasystems.programId`).
+     */
+    programId: string;
     /** Framework slug(s) to assess against. */
     frameworks?: AilpFrameworkSlug | AilpFrameworkSlug[];
-    /** Optional AIRTA Systems program ID. Omitted from the payload when not set. */
-    programId?: string;
     /** Which LLM AILP should use (expert + judge). Defaults to server's `gemini`. */
     provider?: AilpProvider;
     /** Gemini API key (only sent when `provider === "gemini"`). */
@@ -74,7 +82,12 @@ export interface OpenAIWrapOptions extends WrapOptions {
  * const response = await wrapOpenAI(
  *   (p) => openai.chat.completions.create(p),
  *   { model: "gpt-4o-mini", messages },
- *   { client, programId: "my-program", frameworks: ["eu-ai-act"] }
+ *   {
+ *     client,
+ *     apiKey: process.env.AILP_API_KEY!,
+ *     programId: process.env.AIRTASYSTEMS_PROGRAM_ID!,
+ *     frameworks: ["eu-ai-act"],
+ *   }
  * );
  */
 export declare function wrapOpenAI<T extends OpenAIChatParams>(fn: (params: T) => Promise<OpenAIChatResponse>, params: T, options: OpenAIWrapOptions): Promise<OpenAIChatResponse>;

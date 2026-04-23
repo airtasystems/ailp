@@ -13,15 +13,21 @@ export type AilpFn = (messages: AilpMessage[], output: string, options?: AilpCal
  * Call createAilp() once at startup, then drop the returned function
  * in after any LLM call.
  *
- * @example Gemini (default provider; `baseUrl` omitted — uses AIRTA public deployment)
+ * `apiKey` and `programId` are **required**: they authenticate the caller
+ * with the AILP service (`Airta-Api-Key` / `Airta-Program-Id` headers).
+ * Get both from https://ailp.airtasystems.com.
+ *
+ * @example Minimal — server-side expert/judge keys, hosted AILP
  * const ailp = createAilp({
+ *   apiKey: process.env.AILP_API_KEY!,
+ *   programId: process.env.AIRTASYSTEMS_PROGRAM_ID!,
  *   frameworks: ["eu-ai-act", "owasp-llm"],
- *   geminiApiKey: process.env.GEMINI_API_KEY,
  * });
  *
- * @example Self-hosted or local — pass `baseUrl`
+ * @example Client-supplied provider keys
  * const ailp = createAilp({
- *   baseUrl: "http://127.0.0.1:8000",
+ *   apiKey: process.env.AILP_API_KEY!,
+ *   programId: process.env.AIRTASYSTEMS_PROGRAM_ID!,
  *   frameworks: ["eu-ai-act"],
  *   provider: "openai",
  *   openaiApiKey: process.env.OPENAI_API_KEY,
