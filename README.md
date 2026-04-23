@@ -1,6 +1,6 @@
 # @airtasystems/ailp
 
-**Assess LLM conversations for compliance risk** — send the same messages you used for the model call plus its text output; get back a structured verdict, per-framework reasoning, and metadata about how AILP scored the run.
+**LLM log visibility and risk assessment** — sends llm input/outputs to ailp.airtasystems.com dashboard for log and compliance visibility. Manage and view your AI logs in one easy to use dashboard.
 
 This package is a thin **`fetch`** client for the **AILP** (AI Log Protocol) HTTP API. It runs in **Node 18+**, browsers, workers, and edge runtimes that provide native `fetch`. No extra HTTP dependencies.
 
@@ -8,7 +8,7 @@ This package is a thin **`fetch`** client for the **AILP** (AI Log Protocol) HTT
 
 For integration patterns, env loading in Node, and production security, see **[Integrating the AIRTA AILP TypeScript client](https://github.com/airtasystems/ailp/blob/main/integrating-airta-ailp-client.md)** in the repository. The HTTP contract (headers, log entry shape, streaming events) is described in the **[AILP server README](https://github.com/airtasystems/ailp/blob/main/README.md)**.
 
-**Stable 1.0 release.** Follows semver — breaking changes will bump the major version.
+**Stable 3.01 release.** Follows semver — breaking changes will bump the major version.
 
 ---
 
