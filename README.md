@@ -4,7 +4,7 @@
 
 This package is a thin **`fetch`** client for the **AILP** (AI Log Protocol) HTTP API. It runs in **Node 18+**, browsers, workers, and edge runtimes that provide native `fetch`. No extra HTTP dependencies.
 
-**Default server:** AIRTA hosts a public deployment at **`https://ailp.airtasystems.com`** (no trailing slash). Paths **`/health`**, **`/assess`**, and **`/assess/stream`** are appended for you. Use **`baseUrl`** for your own deployment (for example **`http://127.0.0.1:8000`**).
+**Default server:** The hosted AILP API is at **`https://ailp.airtasystems.com/ailp`** (no trailing slash). The client appends **`/health`**, **`/assess`**, and **`/assess/stream`** to that base. Override with **`baseUrl`** if you use another deployment (for example **`http://127.0.0.1:8000/ailp`** when your server is mounted there).
 
 For integration patterns, env loading in Node, and production security, see **[Integrating the AIRTA AILP TypeScript client](https://github.com/airtasystems/ailp/blob/main/integrating-airta-ailp-client.md)** in the repository. The HTTP contract (headers, log entry shape, streaming events) is described in the **[AILP server README](https://github.com/airtasystems/ailp/blob/main/README.md)**.
 
@@ -96,7 +96,7 @@ Optional third argument per call: **`{ model?, endpoint? }`** to record which mo
 | **`apiKey`** | **Required.** AILP API key from [ailp.airtasystems.com](https://ailp.airtasystems.com). Sent as **`Airta-Api-Key`**. |
 | **`programId`** | **Required.** Program ID from ailp.airtasystems.com. Sent as **`Airta-Program-Id`** and echoed under **`airtasystems.programId`**. |
 | **`frameworks`** | **Required.** One slug or an array (see table below). |
-| **`baseUrl`** | Server origin, no trailing slash. Omit for **`AILP_DEFAULT_BASE_URL`** (`https://ailp.airtasystems.com`). |
+| **`baseUrl`** | API base URL, no trailing slash. Omit for **`AILP_DEFAULT_BASE_URL`** (`https://ailp.airtasystems.com/ailp`). |
 | **`provider`** | **`"gemini"`** \| **`"openai"`** — same vendor for experts and judge when split fields omitted. Omit to let the server default. |
 | **`expertProvider`** / **`judgeProvider`** | Split vendors; send both API keys when both sides need them. |
 | **`geminiApiKey`** / **`openaiApiKey`** | Mapped to **`X-Gemini-Api-Key`** / **`X-OpenAI-Api-Key`**. When all provider fields are omitted, non-empty keys may both be sent so mixed server configs still authenticate. |
@@ -237,7 +237,7 @@ Override any field by passing **`useAilp({ ... })`** instead of relying on env.
 |----------|------|
 | **`NEXT_PUBLIC_AILP_API_KEY`** / **`VITE_AILP_API_KEY`** | **Required.** AILP API key from ailp.airtasystems.com. |
 | **`NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID`** / **`VITE_AIRTASYSTEMS_PROGRAM_ID`** | **Required.** Program ID from ailp.airtasystems.com. |
-| **`NEXT_PUBLIC_AILP_BASE_URL`** / **`VITE_AILP_BASE_URL`** | Self-hosted or local origin. Omit for **`AILP_DEFAULT_BASE_URL`**. |
+| **`NEXT_PUBLIC_AILP_BASE_URL`** / **`VITE_AILP_BASE_URL`** | API base (including any path prefix, e.g. `/ailp`). Omit for **`AILP_DEFAULT_BASE_URL`** (`https://ailp.airtasystems.com/ailp`). |
 | **`NEXT_PUBLIC_AILP_PROVIDER`** / **`VITE_AILP_PROVIDER`** | Omit so the **server** picks pipeline and keys. Set **`gemini`** or **`openai`** only when the browser must send **`X-*-Api-Key`**. |
 | **`NEXT_PUBLIC_GEMINI_API_KEY`** / **`VITE_GEMINI_API_KEY`** | Required when provider (or split experts/judge) uses Gemini. |
 | **`NEXT_PUBLIC_OPENAI_API_KEY`** / **`VITE_OPENAI_API_KEY`** | Required when provider (or split experts/judge) uses OpenAI. |
