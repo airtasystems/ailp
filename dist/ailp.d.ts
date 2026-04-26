@@ -22,6 +22,8 @@ export type AilpFn = (messages: AilpMessage[], output: string, options?: AilpCal
  *   apiKey: process.env.AILP_API_KEY!,
  *   programId: process.env.AIRTASYSTEMS_PROGRAM_ID!,
  *   frameworks: ["eu-ai-act", "owasp-llm"],
+ *   openaiApiKey: process.env.OPENAI_API_KEY,
+ *   geminiApiKey: process.env.GEMINI_API_KEY,
  * });
  *
  * @example Client-supplied provider keys

@@ -79,6 +79,10 @@ const ailp = createAilp({
   apiKey: process.env.AILP_API_KEY!,
   programId: process.env.AIRTASYSTEMS_PROGRAM_ID!,
   frameworks: ["eu-ai-act", "owasp-llm"],
+  // Some hosted programs require a client-supplied pipeline key even when
+  // `provider` is omitted. Pass whichever keys are available.
+  openaiApiKey: process.env.OPENAI_API_KEY,
+  geminiApiKey: process.env.GEMINI_API_KEY,
 });
 
 const result = await ailp(messages, assistantText);
@@ -87,7 +91,7 @@ console.log(result.risk_level, result.judge_reasoning);
 
 Optional third argument per call: **`{ model?, endpoint? }`** to record which model produced the output and an optional endpoint label.
 
-**Omit `provider`** if your AILP server is configured to choose the expert/judge pipeline (and keys) itself — then you may not need to pass provider keys from the client. If you **do** set **`provider`** (or **`expertProvider`** / **`judgeProvider`**), supply the matching **`geminiApiKey`** and/or **`openaiApiKey`** so the client can send **`Gemini-Api-Key`** / **`OpenAI-Api-Key`** plus the **`X-*-Api-Key`** compatibility variants.
+**Omit `provider`** if your AILP server is configured to choose the expert/judge pipeline itself. Still pass **`openaiApiKey`** and/or **`geminiApiKey`** when your hosted program requires client-supplied pipeline keys; the client will forward any non-empty keys even when **`provider`** is omitted. If you **do** set **`provider`** (or **`expertProvider`** / **`judgeProvider`**), supply the matching key so the client can send **`Gemini-Api-Key`** / **`OpenAI-Api-Key`** plus the **`X-*-Api-Key`** compatibility variants.
 
 ### `createAilp` options
 
@@ -131,15 +135,11 @@ Do not append `/assess` yourself when using **`createAilp()`** or **`AilpClient`
 ```bash
 AILP_API_KEY=...
 AIRTASYSTEMS_PROGRAM_ID=...
+OPENAI_API_KEY=...   # often required by hosted programs using OpenAI
+GEMINI_API_KEY=...   # required when the pipeline uses Gemini
 ```
 
-If the app explicitly sets **`provider: "openai"`** or **`provider: "gemini"`**, also require the matching provider key:
-
-```bash
-OPENAI_API_KEY=...
-# or
-GEMINI_API_KEY=...
-```
+Do not assume provider keys are unnecessary just because **`provider`** is omitted. Some hosted AILP programs choose the provider server-side but still require the matching client-supplied key. If the server returns **`Missing OpenAI API key. Send it in the OpenAI-Api-Key request header.`**, pass **`openaiApiKey: process.env.OPENAI_API_KEY`**. If it asks for Gemini, pass **`geminiApiKey: process.env.GEMINI_API_KEY`**.
 
 4. Prefer **`createAilp()`** for normal integrations:
 
@@ -150,6 +150,8 @@ const ailp = createAilp({
   apiKey: process.env.AILP_API_KEY!,
   programId: process.env.AIRTASYSTEMS_PROGRAM_ID!,
   frameworks: ["eu-ai-act", "owasp-llm"],
+  openaiApiKey: process.env.OPENAI_API_KEY,
+  geminiApiKey: process.env.GEMINI_API_KEY,
 });
 
 const result = await ailp(messages, assistantText, {
@@ -184,7 +186,7 @@ const result = await ailp(messages, assistantText, {
 | **`Content-Type`** | **`application/json`** |
 | **`Airta-Api-Key`** | AILP API key |
 | **`Airta-Program-Id`** | AIRTA Systems program ID |
-| **`OpenAI-Api-Key`** / **`Gemini-Api-Key`** | Provider key when that provider is used by the AILP pipeline |
+| **`OpenAI-Api-Key`** / **`Gemini-Api-Key`** | Provider key requested by the hosted AILP pipeline; include the available key even if provider selection is server-side |
 | **`X-OpenAI-Api-Key`** / **`X-Gemini-Api-Key`** | Compatibility variant; safe to send with the non-`X` header |
 
 8. In browser apps, prefer a server route or proxy for production. **`NEXT_PUBLIC_*`** and **`VITE_*`** values are visible to users, so never expose production LLM provider keys in a public bundle.
@@ -385,7 +387,7 @@ Node does not load **`.env`** automatically. Use **`dotenv`** (or your host’s 
 |---------|----------------|
 | `createAilp` throws at start-up | **`apiKey`** and **`programId`** are both required. Load env (e.g. `dotenv`) before `createAilp()`. |
 | **400** — `Missing required header(s): Airta-Api-Key, Airta-Program-Id` | Pass **`apiKey`** / **`programId`** (or the corresponding env vars); values are trimmed, so whitespace-only strings are treated as missing. |
-| **400** — missing provider API key | Align **`provider`** / split providers with the keys you pass; verify **`process.env`** at runtime. |
+| **400** — `Missing OpenAI API key` / `Missing Gemini API key` | Pass **`openaiApiKey: process.env.OPENAI_API_KEY`** and/or **`geminiApiKey: process.env.GEMINI_API_KEY`**. Hosted programs may require these even when **`provider`** is omitted and provider selection is server-side. |
 | **400** — bad body shape or missing import flag | Send a flat body with **`airta_import: 1`**, not **`{ airta_import: entry }`**. Include top-level **`timestamp`**, **`input`**, **`output`**, **`modelTested`**, **`framework`**, and **`airtasystems`**. |
 | Wrong server | Set **`baseUrl`** (no trailing slash). |
 | Timeouts | Increase **`timeoutMs`** or use **`assessStream`** for progressive UI. |
