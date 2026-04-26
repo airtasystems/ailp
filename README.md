@@ -39,7 +39,7 @@ The package is **ESM** (`"type": "module"`). Import from **`@airtasystems/ailp`*
 
 ## What you send and what you get
 
-**Send:** An array of **`{ role, content }`** messages (the conversation you sent to your LLM) and the **final assistant text** (`output`) from that model.
+**Send:** With **`createAilp()`**, pass an array of **`{ role, content }`** messages (the conversation you sent to your LLM) and the **final assistant text** (`output`) from that model. The client builds the log entry and posts it to the AILP API as **`{ airta_import: entry }`**, which is the hosted server contract.
 
 **Receive:** An **`AilpAssessResponse`** including:
 
@@ -131,8 +131,8 @@ await client.assess(entry, auth);
 await client.assessStream(entry, auth, { onEvent });
 ```
 
-- **`assess`** — **`POST /assess`**, returns full **`AilpAssessResponse`**.
-- **`assessStream`** — **`POST /assess/stream`**, NDJSON until **`done`**. Same final shape as **`assess`**.
+- **`assess`** — wraps the **`AilpLogEntry`** as **`{ airta_import: entry }`**, sends **`POST /assess`**, and returns the full **`AilpAssessResponse`**.
+- **`assessStream`** — wraps the **`AilpLogEntry`** as **`{ airta_import: entry }`**, sends **`POST /assess/stream`**, and reads NDJSON until **`done`**. Same final shape as **`assess`**.
 - Non-2xx responses throw **`AilpError`** with **`status`** and **`body`**. A **400** mentioning **`Airta-Api-Key`** or **`Airta-Program-Id`** means the server rejected the request for missing auth.
 
 The **`AilpAssessHeaders`** passed to **`assess`** / **`assessStream`** accepts **`apiKey`**, **`programId`**, **`geminiApiKey`**, and **`openaiApiKey`**. Use **`buildProviderAuthHeaders(entry, auth)`** if you build **`fetch`** yourself — it produces the correct **`Airta-*`** and **`X-*-Api-Key`** header set.
