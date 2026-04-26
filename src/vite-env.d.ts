@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_AIRTASYSTEMS_PROGRAM_ID?: string;
   readonly VITE_AILP_FRAMEWORKS?: string;
   readonly VITE_AILP_PROVIDER?: string;
+  readonly VITE_AILP_ASSESSMENT_MODE?: string;
+  readonly VITE_AILP_SECURITY?: string;
   readonly VITE_GEMINI_API_KEY?: string;
   readonly VITE_OPENAI_API_KEY?: string;
 }

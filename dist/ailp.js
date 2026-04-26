@@ -56,6 +56,16 @@ export function createAilp(options) {
             ...(options.provider !== undefined ? { provider: options.provider } : {}),
             ...(options.expertProvider !== undefined ? { expertProvider: options.expertProvider } : {}),
             ...(options.judgeProvider !== undefined ? { judgeProvider: options.judgeProvider } : {}),
+            ...(callOptions?.assessmentMode !== undefined
+                ? { assessmentMode: callOptions.assessmentMode }
+                : options.assessmentMode !== undefined
+                    ? { assessmentMode: options.assessmentMode }
+                    : {}),
+            ...(callOptions?.security !== undefined
+                ? { security: callOptions.security ? 1 : 0 }
+                : options.security !== undefined
+                    ? { security: options.security ? 1 : 0 }
+                    : {}),
             airtasystems: {
                 programId,
                 ...(options.frameworks !== undefined ? { frameworks: options.frameworks } : {}),

@@ -14,6 +14,7 @@ export type { LlmWrapOptions, OpenAIWrapOptions, WrapOptions } from "./wrap.js";
 
 export type {
   AilpAssessment,
+  AilpAssessmentMode,
   AilpAssessmentProviderField,
   AilpAssessResponse,
   AilpAssessStreamEvent,

@@ -51,6 +51,10 @@ The package is **ESM** (`"type": "module"`). Import from **`@airtasystems/ailp`*
 | **`frameworks`** | Resolved display names for the rubrics that ran. |
 | **`assessment`** | Which vendor/models AILP used internally (**`expertProvider`**, **`judgeProvider`**, **`expertModel`**, **`judgeModel`**; legacy **`provider`** is **`"mixed"`** when sides differ). |
 | **`log`** | Echo of the submitted entry. **`input.messages[*].content`** and **`output`** come back with PII/PHI placeholders substituted (see "Server-side redaction" below); all other fields echo verbatim. |
+| **`assessmentMode`** | Server-normalized mode. Defaults to **`"response_safety"`**. |
+| **`requestRiskLevel`** | Optional request-security risk level. Present only when request security is enabled; it does **not** affect **`risk_level`**. |
+| **`requestRiskReasoning`** | Optional explanation for the request-security side assessment. |
+| **`requestSecurityExperts`** | Optional OWASP LLM, OWASP Agentic, and MITRE ATT&CK expert results for the request-security side assessment. |
 
 The **`model`** you attach (via `createAilp`’s third argument or a full **`AilpLogEntry`**) describes the **audited** model. The models used **inside** AILP for experts and judge come from **`provider`** / **`expertProvider`** / **`judgeProvider`** and server configuration — not from your product model name.
 
@@ -91,6 +95,27 @@ console.log(result.risk_level, result.judge_reasoning);
 
 Optional third argument per call: **`{ model?, endpoint? }`** to record which model produced the output and an optional endpoint label.
 
+To also classify the incoming request against security frameworks (OWASP LLM, OWASP Agentic, and MITRE ATT&CK) without changing the response-based **`risk_level`**, enable request security:
+
+```typescript
+const ailp = createAilp({
+  apiKey: process.env.AILP_API_KEY!,
+  programId: process.env.AIRTASYSTEMS_PROGRAM_ID!,
+  frameworks: ["owasp-llm", "owasp-agent", "mitre-attack"],
+  assessmentMode: "response_safety_with_request_security",
+});
+
+const result = await ailp(messages, assistantText);
+console.log(result.risk_level); // response safety verdict
+console.log(result.requestRiskLevel); // independent request security verdict
+```
+
+You can also use the compact alias **`security: true`** globally or per call:
+
+```typescript
+const result = await ailp(messages, assistantText, { security: true });
+```
+
 **Omit `provider`** if your AILP server is configured to choose the expert/judge pipeline itself. Still pass **`openaiApiKey`** and/or **`geminiApiKey`** when your hosted program requires client-supplied pipeline keys; the client will forward any non-empty keys even when **`provider`** is omitted. If you **do** set **`provider`** (or **`expertProvider`** / **`judgeProvider`**), supply the matching key so the client can send **`Gemini-Api-Key`** / **`OpenAI-Api-Key`** plus the **`X-*-Api-Key`** compatibility variants.
 
 ### `createAilp` options
@@ -104,6 +129,8 @@ Optional third argument per call: **`{ model?, endpoint? }`** to record which mo
 | **`provider`** | **`"gemini"`** \| **`"openai"`** — same vendor for experts and judge when split fields omitted. Omit to let the server default. |
 | **`expertProvider`** / **`judgeProvider`** | Split vendors; send both API keys when both sides need them. |
 | **`geminiApiKey`** / **`openaiApiKey`** | Mapped to **`Gemini-Api-Key`** / **`OpenAI-Api-Key`** and **`X-Gemini-Api-Key`** / **`X-OpenAI-Api-Key`**. When all provider fields are omitted, non-empty keys may both be sent so mixed server configs still authenticate. |
+| **`assessmentMode`** | Optional. Use **`"response_safety_with_request_security"`** to include OWASP request-risk fields while keeping **`risk_level`** response-based. |
+| **`security`** | Optional boolean alias for request-security mode. |
 | **`timeoutMs`** | Optional **`fetch` timeout** for assess calls. |
 
 `createAilp()` throws synchronously if **`apiKey`** or **`programId`** is missing or empty — fail fast at boot rather than per request.
@@ -172,6 +199,7 @@ const result = await ailp(messages, assistantText, {
   output: assistantText,
   modelTested: "gpt-4o-mini",
   framework: ["eu-ai-act", "owasp-llm"],
+  assessmentMode: "response_safety_with_request_security",
   airtasystems: {
     programId: process.env.AIRTASYSTEMS_PROGRAM_ID,
     frameworks: ["eu-ai-act", "owasp-llm"],
@@ -235,6 +263,7 @@ Same contract as the server:
 | **`phase`** | **`experts`** or **`judge`** — UI hints during long LLM gaps. |
 | **`expert`** | One expert payload (may include **`expert_id`**). |
 | **`judge`** | Judge progress (**`risk_level`**, **`reasoning_preview`**). |
+| **`request_security`** | Optional request-security side assessment progress (**`risk_level`**, **`reasoning_preview`**). |
 | **`done`** | Final payload — same keys as **`assess`**. |
 | **`error`** | Terminal failure (**`detail`**). |
 

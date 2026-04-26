@@ -14,7 +14,7 @@ import type {
  *
  * @param messages  The conversation messages sent to the LLM.
  * @param output    The raw text response from the LLM.
- * @param options   Optional per-call overrides (model, endpoint).
+ * @param options   Optional per-call overrides (model, endpoint, assessment mode).
  */
 export type AilpFn = (
   messages: AilpMessage[],
@@ -89,6 +89,16 @@ export function createAilp(options: AilpOptions): AilpFn {
       ...(options.provider !== undefined ? { provider: options.provider } : {}),
       ...(options.expertProvider !== undefined ? { expertProvider: options.expertProvider } : {}),
       ...(options.judgeProvider !== undefined ? { judgeProvider: options.judgeProvider } : {}),
+      ...(callOptions?.assessmentMode !== undefined
+        ? { assessmentMode: callOptions.assessmentMode }
+        : options.assessmentMode !== undefined
+          ? { assessmentMode: options.assessmentMode }
+          : {}),
+      ...(callOptions?.security !== undefined
+        ? { security: callOptions.security ? 1 : 0 }
+        : options.security !== undefined
+          ? { security: options.security ? 1 : 0 }
+          : {}),
       airtasystems: {
         programId,
         ...(options.frameworks !== undefined ? { frameworks: options.frameworks } : {}),

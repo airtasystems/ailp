@@ -5,5 +5,5 @@ export { AilpClient, AilpError, buildProviderAuthHeaders, readAilpAssessNdjsonSt
 export type { AilpAssessHeaders, AilpAssessStreamOptions } from "./client.js";
 export { wrapLlmCall, wrapOpenAI } from "./wrap.js";
 export type { LlmWrapOptions, OpenAIWrapOptions, WrapOptions } from "./wrap.js";
-export type { AilpAssessment, AilpAssessmentProviderField, AilpAssessResponse, AilpAssessStreamEvent, AilpAssessStreamExpertPayload, AilpCallOptions, AilpClientOptions, AilpExpertResult, AilpFrameworkSlug, AilpLogEntry, AilpMessage, AilpOptions, AilpProvider, AilpRiskLevel, } from "./types.js";
+export type { AilpAssessment, AilpAssessmentMode, AilpAssessmentProviderField, AilpAssessResponse, AilpAssessStreamEvent, AilpAssessStreamExpertPayload, AilpCallOptions, AilpClientOptions, AilpExpertResult, AilpFrameworkSlug, AilpLogEntry, AilpMessage, AilpOptions, AilpProvider, AilpRiskLevel, } from "./types.js";
 //# sourceMappingURL=index.d.ts.map

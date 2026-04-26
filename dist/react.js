@@ -22,6 +22,10 @@ import { useCallback, useMemo, useState } from "react";
 import { AILP_DEFAULT_BASE_URL } from "./constants.js";
 import { createAilp } from "./ailp.js";
 const PROVIDER_VALUES = ["gemini", "openai"];
+const ASSESSMENT_MODE_VALUES = [
+    "response_safety",
+    "response_safety_with_request_security",
+];
 function coerceProvider(raw) {
     if (raw == null)
         return undefined;
@@ -33,6 +37,33 @@ function coerceProvider(raw) {
         return "gemini";
     return PROVIDER_VALUES.includes(t) ? t : undefined;
 }
+function coerceAssessmentMode(raw) {
+    if (raw == null)
+        return undefined;
+    const t = raw.trim().toLowerCase().replace(/-/g, "_");
+    if (t === "")
+        return undefined;
+    if (t === "response" || t === "safety")
+        return "response_safety";
+    if (t === "security" || t === "request_security" || t === "response_security") {
+        return "response_safety_with_request_security";
+    }
+    return ASSESSMENT_MODE_VALUES.includes(t)
+        ? t
+        : undefined;
+}
+function coerceSecurityFlag(raw) {
+    if (raw == null)
+        return undefined;
+    const t = raw.trim().toLowerCase();
+    if (t === "")
+        return undefined;
+    if (["1", "true", "yes", "on", "security"].includes(t))
+        return true;
+    if (["0", "false", "no", "off"].includes(t))
+        return false;
+    return undefined;
+}
 function readNextPublicEnv() {
     return {
         baseUrl: process.env.NEXT_PUBLIC_AILP_BASE_URL,
@@ -40,6 +71,8 @@ function readNextPublicEnv() {
         programId: process.env.NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID,
         frameworks: process.env.NEXT_PUBLIC_AILP_FRAMEWORKS,
         provider: process.env.NEXT_PUBLIC_AILP_PROVIDER,
+        assessmentMode: process.env.NEXT_PUBLIC_AILP_ASSESSMENT_MODE,
+        security: process.env.NEXT_PUBLIC_AILP_SECURITY,
         geminiApiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY,
         openaiApiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
     };
@@ -52,6 +85,8 @@ function readViteEnv() {
         programId: import.meta.env?.VITE_AIRTASYSTEMS_PROGRAM_ID,
         frameworks: import.meta.env?.VITE_AILP_FRAMEWORKS,
         provider: import.meta.env?.VITE_AILP_PROVIDER,
+        assessmentMode: import.meta.env?.VITE_AILP_ASSESSMENT_MODE,
+        security: import.meta.env?.VITE_AILP_SECURITY,
         geminiApiKey: import.meta.env?.VITE_GEMINI_API_KEY,
         openaiApiKey: import.meta.env?.VITE_OPENAI_API_KEY,
     };
@@ -155,6 +190,12 @@ export function resolveAilpConfigFromEnv(overrides) {
     const openaiApiKey = overrides?.openaiApiKey ??
         nonempty(next.openaiApiKey) ??
         nonempty(vite.openaiApiKey);
+    const assessmentMode = overrides?.assessmentMode ??
+        coerceAssessmentMode(next.assessmentMode) ??
+        coerceAssessmentMode(vite.assessmentMode);
+    const security = overrides?.security ??
+        coerceSecurityFlag(next.security) ??
+        coerceSecurityFlag(vite.security);
     if ((expertProvider === "gemini" || judgeProvider === "gemini") &&
         (geminiApiKey == null || geminiApiKey.trim() === "")) {
         throw new Error("AILP: missing Gemini API key (experts and/or judge use Gemini). Set NEXT_PUBLIC_GEMINI_API_KEY (or VITE_GEMINI_API_KEY), pass geminiApiKey to useAilp(), or adjust expertProvider/judgeProvider. If the AILP server holds keys, omit NEXT_PUBLIC_AILP_PROVIDER (and split provider env vars) so the client does not assert a vendor. Restart the dev server after changing env so it is inlined (Next.js).");
@@ -173,6 +214,8 @@ export function resolveAilpConfigFromEnv(overrides) {
         judgeProvider,
         geminiApiKey,
         openaiApiKey,
+        assessmentMode,
+        security,
         timeoutMs: overrides?.timeoutMs,
     };
 }
@@ -190,6 +233,8 @@ function frameworksDepKey(fw) {
  * - `NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID` / `VITE_AIRTASYSTEMS_PROGRAM_ID` — **required**
  * - `NEXT_PUBLIC_AILP_BASE_URL` / `VITE_AILP_BASE_URL` — omit to use `AILP_DEFAULT_BASE_URL` (`https://ailp.airtasystems.com/ailp`, no trailing slash)
  * - `NEXT_PUBLIC_AILP_PROVIDER` / `VITE_AILP_PROVIDER` — omit to let the **server** use its configured expert/judge (no browser LLM key). Set to `gemini` or `openai` only when the client must send provider API key headers.
+ * - `NEXT_PUBLIC_AILP_ASSESSMENT_MODE` / `VITE_AILP_ASSESSMENT_MODE` — optional; set `response_safety_with_request_security` to include OWASP request-risk fields.
+ * - `NEXT_PUBLIC_AILP_SECURITY` / `VITE_AILP_SECURITY` — optional compact alias; set `1`/`true` to enable request-security side assessment.
  * - `NEXT_PUBLIC_GEMINI_API_KEY` / `VITE_GEMINI_API_KEY` — required when provider (or split experts/judge) uses `gemini`
  * - `NEXT_PUBLIC_OPENAI_API_KEY` / `VITE_OPENAI_API_KEY` — required when provider (or split experts/judge) uses `openai`
  * - `NEXT_PUBLIC_AILP_FRAMEWORKS` / `VITE_AILP_FRAMEWORKS` — comma-separated or JSON array; default `eu-ai-act`
@@ -209,6 +254,8 @@ export function useAilp(options) {
     const judgeProvider = options?.judgeProvider;
     const geminiApiKey = options?.geminiApiKey;
     const openaiApiKey = options?.openaiApiKey;
+    const assessmentMode = options?.assessmentMode;
+    const security = options?.security;
     const config = useMemo(() => resolveAilpConfigFromEnv({
         baseUrl,
         apiKey,
@@ -220,6 +267,8 @@ export function useAilp(options) {
         judgeProvider,
         geminiApiKey,
         openaiApiKey,
+        assessmentMode,
+        security,
     }), [
         baseUrl,
         apiKey,
@@ -231,6 +280,8 @@ export function useAilp(options) {
         judgeProvider,
         geminiApiKey,
         openaiApiKey,
+        assessmentMode,
+        security,
     ]);
     const ailp = useMemo(() => createAilp(config), [config]);
     const state = useAssess(ailp);

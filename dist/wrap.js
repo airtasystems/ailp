@@ -17,6 +17,8 @@ export async function wrapLlmCall(fn, params, options) {
             endpoint: options.endpoint,
             framework: options.frameworks,
             ...(options.provider ? { provider: options.provider } : {}),
+            ...(options.assessmentMode ? { assessmentMode: options.assessmentMode } : {}),
+            ...(options.security !== undefined ? { security: options.security ? 1 : 0 } : {}),
             ..._buildAirtaBlock(options),
         }, options);
         throw err;
@@ -37,6 +39,8 @@ export async function wrapLlmCall(fn, params, options) {
         endpoint: options.endpoint,
         framework: options.frameworks,
         ...(options.provider ? { provider: options.provider } : {}),
+        ...(options.assessmentMode ? { assessmentMode: options.assessmentMode } : {}),
+        ...(options.security !== undefined ? { security: options.security ? 1 : 0 } : {}),
         ..._buildAirtaBlock(options),
     };
     _fireAssess(entry, options);

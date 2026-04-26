@@ -5,7 +5,7 @@ import type { AilpAssessResponse, AilpCallOptions, AilpMessage, AilpOptions } fr
  *
  * @param messages  The conversation messages sent to the LLM.
  * @param output    The raw text response from the LLM.
- * @param options   Optional per-call overrides (model, endpoint).
+ * @param options   Optional per-call overrides (model, endpoint, assessment mode).
  */
 export type AilpFn = (messages: AilpMessage[], output: string, options?: AilpCallOptions) => Promise<AilpAssessResponse>;
 /**

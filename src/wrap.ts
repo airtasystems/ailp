@@ -1,5 +1,6 @@
 import type { AilpClient } from "./client.js";
 import type {
+  AilpAssessmentMode,
   AilpAssessResponse,
   AilpFrameworkSlug,
   AilpLogEntry,
@@ -31,6 +32,10 @@ export interface WrapOptions {
   geminiApiKey?: string;
   /** OpenAI API key (only sent when `provider === "openai"`). */
   openaiApiKey?: string;
+  /** Optional assessment mode; request-security output never affects response `risk_level`. */
+  assessmentMode?: AilpAssessmentMode;
+  /** Compact alias for enabling OWASP request-security side assessment. */
+  security?: boolean;
   /** Name of the calling function/route (logged as "function" in the entry). */
   functionName?: string;
   /** Endpoint path to record (e.g. "/api/chat"). */
@@ -88,6 +93,8 @@ export async function wrapLlmCall<TParams, TResult>(
         endpoint: options.endpoint,
         framework: options.frameworks,
         ...(options.provider ? { provider: options.provider } : {}),
+        ...(options.assessmentMode ? { assessmentMode: options.assessmentMode } : {}),
+        ...(options.security !== undefined ? { security: options.security ? 1 : 0 } : {}),
         ..._buildAirtaBlock(options),
       },
       options,
@@ -112,6 +119,8 @@ export async function wrapLlmCall<TParams, TResult>(
     endpoint: options.endpoint,
     framework: options.frameworks,
     ...(options.provider ? { provider: options.provider } : {}),
+    ...(options.assessmentMode ? { assessmentMode: options.assessmentMode } : {}),
+    ...(options.security !== undefined ? { security: options.security ? 1 : 0 } : {}),
     ..._buildAirtaBlock(options),
   };
 

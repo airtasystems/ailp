@@ -6,6 +6,7 @@ export type AilpFrameworkSlug = "eu_ai_act" | "eu-ai-act" | "oecd" | "owasp_llm"
  */
 export type AilpProvider = "gemini" | "openai";
 export type AilpRiskLevel = "critical" | "high" | "medium" | "low" | "informational" | "compliant" | "indeterminate";
+export type AilpAssessmentMode = "response_safety" | "response_safety_with_request_security";
 export interface AilpMessage {
     role: string;
     content: string;
@@ -65,6 +66,15 @@ export interface AilpLogEntry {
      * env default.
      */
     judgeModel?: string;
+    /**
+     * Assessment mode for this log entry.
+     * - `response_safety` keeps the historical response-based risk assessment.
+     * - `response_safety_with_request_security` also returns security request-risk fields
+     *   that do not affect the overall `risk_level`.
+     */
+    assessmentMode?: AilpAssessmentMode;
+    /** Compact alias for `assessmentMode: "response_safety_with_request_security"`. */
+    security?: 0 | 1 | boolean;
     airtasystems?: {
         programId?: string;
         frameworks?: AilpFrameworkSlug | AilpFrameworkSlug[];
@@ -98,6 +108,14 @@ export interface AilpAssessResponse {
     assessment: AilpAssessment;
     /** Echo of the submitted log entry. */
     log: AilpLogEntry;
+    /** Server-normalized assessment mode. */
+    assessmentMode?: AilpAssessmentMode;
+    /** Optional request-security risk level; present only when request security is enabled. */
+    requestRiskLevel?: AilpRiskLevel;
+    /** Optional explanation for the request-security side assessment. */
+    requestRiskReasoning?: string;
+    /** Optional request-security expert results; these do not influence `risk_level`. */
+    requestSecurityExperts?: AilpExpertResult[];
 }
 /**
  * One expert payload on an `event: "expert"` line (server may truncate
@@ -117,6 +135,7 @@ export type AilpAssessStreamEvent = {
     event: "meta";
     frameworks: string[];
     assessment: AilpAssessment;
+    assessmentMode?: AilpAssessmentMode;
 } | {
     event: "cached";
 } | {
@@ -129,6 +148,10 @@ export type AilpAssessStreamEvent = {
     phase: "experts" | "judge";
 } | {
     event: "judge";
+    risk_level: string;
+    reasoning_preview: string;
+} | {
+    event: "request_security";
     risk_level: string;
     reasoning_preview: string;
 } | (AilpAssessResponse & {
@@ -177,6 +200,10 @@ export interface AilpOptions {
      * browser-exposure caveat as `geminiApiKey`.
      */
     openaiApiKey?: string;
+    /** Default assessment mode for calls made by the returned ailp function. */
+    assessmentMode?: AilpAssessmentMode;
+    /** Compact alias for enabling OWASP request-security side assessment by default. */
+    security?: boolean;
     /** Optional request timeout in milliseconds (default: no timeout). */
     timeoutMs?: number;
 }
@@ -186,6 +213,10 @@ export interface AilpCallOptions {
     model?: string;
     /** Endpoint path to record (e.g. "/api/chat"). */
     endpoint?: string;
+    /** Per-call override for the assessment mode. */
+    assessmentMode?: AilpAssessmentMode;
+    /** Per-call compact alias for enabling request-security side assessment. */
+    security?: boolean;
 }
 export interface AilpClientOptions {
     baseUrl: string;
