@@ -40,6 +40,8 @@ export interface AilpMessage {
 // -------------------------------------------------------------------------
 
 export interface AilpLogEntry {
+  /** Hosted import mode flag; use `1` for assessment imports. */
+  airta_import?: 0 | 1;
   timestamp: string;
   /** Name of the calling function / route handler. */
   function?: string;
@@ -196,15 +198,16 @@ export interface AilpOptions {
   judgeProvider?: AilpProvider;
   /**
    * Gemini API key. Required when `provider` resolves to `"gemini"`; sent as
-   * the `X-Gemini-Api-Key` request header. Security: if you inline this via a
-   * `NEXT_PUBLIC_*` / `VITE_*` env var it will be shipped to browsers — prefer
-   * calling AILP from a server route that reads the key from a non-public env.
+   * `Gemini-Api-Key` plus the `X-Gemini-Api-Key` compatibility header.
+   * Security: if you inline this via a `NEXT_PUBLIC_*` / `VITE_*` env var it
+   * will be shipped to browsers — prefer calling AILP from a server route that
+   * reads the key from a non-public env.
    */
   geminiApiKey?: string;
   /**
    * OpenAI API key. Required when `provider` resolves to `"openai"`; sent as
-   * the `X-OpenAI-Api-Key` request header. Same browser-exposure caveat as
-   * `geminiApiKey`.
+   * `OpenAI-Api-Key` plus the `X-OpenAI-Api-Key` compatibility header. Same
+   * browser-exposure caveat as `geminiApiKey`.
    */
   openaiApiKey?: string;
   /** Optional request timeout in milliseconds (default: no timeout). */

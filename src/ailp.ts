@@ -78,6 +78,7 @@ export function createAilp(options: AilpOptions): AilpFn {
     callOptions?: AilpCallOptions,
   ): Promise<AilpAssessResponse> {
     const entry: AilpLogEntry = {
+      airta_import: 1,
       timestamp: new Date().toISOString(),
       input: { messages, endpoint: callOptions?.endpoint },
       output,

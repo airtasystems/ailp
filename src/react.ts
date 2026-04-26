@@ -259,7 +259,7 @@ export type UseAilpResult = UseAssessState & { ailp: AilpFn };
  * - `NEXT_PUBLIC_AILP_API_KEY` / `VITE_AILP_API_KEY` — **required** (ailp.airtasystems.com)
  * - `NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID` / `VITE_AIRTASYSTEMS_PROGRAM_ID` — **required**
  * - `NEXT_PUBLIC_AILP_BASE_URL` / `VITE_AILP_BASE_URL` — omit to use `AILP_DEFAULT_BASE_URL` (`https://ailp.airtasystems.com/ailp`, no trailing slash)
- * - `NEXT_PUBLIC_AILP_PROVIDER` / `VITE_AILP_PROVIDER` — omit to let the **server** use its configured expert/judge (no browser LLM key). Set to `gemini` or `openai` only when the client must send `X-*-Api-Key` headers.
+ * - `NEXT_PUBLIC_AILP_PROVIDER` / `VITE_AILP_PROVIDER` — omit to let the **server** use its configured expert/judge (no browser LLM key). Set to `gemini` or `openai` only when the client must send provider API key headers.
  * - `NEXT_PUBLIC_GEMINI_API_KEY` / `VITE_GEMINI_API_KEY` — required when provider (or split experts/judge) uses `gemini`
  * - `NEXT_PUBLIC_OPENAI_API_KEY` / `VITE_OPENAI_API_KEY` — required when provider (or split experts/judge) uses `openai`
  * - `NEXT_PUBLIC_AILP_FRAMEWORKS` / `VITE_AILP_FRAMEWORKS` — comma-separated or JSON array; default `eu-ai-act`

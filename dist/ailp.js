@@ -45,6 +45,7 @@ export function createAilp(options) {
     });
     return function ailp(messages, output, callOptions) {
         const entry = {
+            airta_import: 1,
             timestamp: new Date().toISOString(),
             input: { messages, endpoint: callOptions?.endpoint },
             output,

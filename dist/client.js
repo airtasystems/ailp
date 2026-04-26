@@ -5,9 +5,10 @@ function trimOrEmpty(v) {
  * Build the full set of auth headers for an assess request:
  * - Always sends `Airta-Api-Key` / `Airta-Program-Id` when provided (both are
  *   required by the AILP server; non-empty values are forwarded verbatim).
- * - Sends `X-Gemini-Api-Key` / `X-OpenAI-Api-Key` for whichever provider the
- *   entry targets (experts and/or judge). When neither is set (server-side
- *   defaults), any non-empty LLM keys are forwarded so mixed pipelines work.
+ * - Sends `Gemini-Api-Key` / `OpenAI-Api-Key` and their `X-*` compatibility
+ *   variants for whichever provider the entry targets (experts and/or judge).
+ *   When neither is set (server-side defaults), any non-empty LLM keys are
+ *   forwarded so mixed pipelines work.
  */
 export function buildProviderAuthHeaders(entry, auth) {
     if (!auth)
@@ -26,16 +27,24 @@ export function buildProviderAuthHeaders(entry, auth) {
     const geminiKey = trimOrEmpty(auth.geminiApiKey);
     const openaiKey = trimOrEmpty(auth.openaiApiKey);
     if (!gemini && !openai) {
-        if (geminiKey)
+        if (geminiKey) {
+            headers["Gemini-Api-Key"] = geminiKey;
             headers["X-Gemini-Api-Key"] = geminiKey;
-        if (openaiKey)
+        }
+        if (openaiKey) {
+            headers["OpenAI-Api-Key"] = openaiKey;
             headers["X-OpenAI-Api-Key"] = openaiKey;
+        }
         return headers;
     }
-    if (gemini && geminiKey)
+    if (gemini && geminiKey) {
+        headers["Gemini-Api-Key"] = geminiKey;
         headers["X-Gemini-Api-Key"] = geminiKey;
-    if (openai && openaiKey)
+    }
+    if (openai && openaiKey) {
+        headers["OpenAI-Api-Key"] = openaiKey;
         headers["X-OpenAI-Api-Key"] = openaiKey;
+    }
     return headers;
 }
 function isRecord(x) {
@@ -116,8 +125,8 @@ export class AilpClient {
      * Submit an LLM log entry for compliance risk assessment.
      *
      * `authHeaders` (optional) lets you pass provider API keys per request — the
-     * right `X-Gemini-Api-Key` or `X-OpenAI-Api-Key` is selected based on
-     * `entry` (including optional `expertProvider` / `judgeProvider`). Throws an `AilpError` on non-2xx responses.
+     * right Gemini/OpenAI provider-key headers are selected based on `entry`
+     * (including optional `expertProvider` / `judgeProvider`). Throws an `AilpError` on non-2xx responses.
      */
     async assess(entry, authHeaders) {
         const extra = buildProviderAuthHeaders(entry, authHeaders);

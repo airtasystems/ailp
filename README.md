@@ -23,7 +23,7 @@ To call AILP you need **two credentials**, both issued at **[ailp.airtasystems.c
 
 Sign in, create a program, copy the API key and program ID, and keep both in server-side env vars. The server rejects requests that are missing either header with HTTP 400.
 
-Provider keys (`geminiApiKey` / `openaiApiKey`) are only needed when you set **`provider`** / **`expertProvider`** / **`judgeProvider`** explicitly; otherwise the server uses its own configured keys.
+Provider keys (`geminiApiKey` / `openaiApiKey`) are needed when you set **`provider`** / **`expertProvider`** / **`judgeProvider`** explicitly or when your hosted API program requires client-supplied pipeline keys. The client sends both hosted headers (**`Gemini-Api-Key`** / **`OpenAI-Api-Key`**) and compatibility headers (**`X-Gemini-Api-Key`** / **`X-OpenAI-Api-Key`**) when those keys are provided.
 
 ---
 
@@ -39,7 +39,7 @@ The package is **ESM** (`"type": "module"`). Import from **`@airtasystems/ailp`*
 
 ## What you send and what you get
 
-**Send:** With **`createAilp()`**, pass an array of **`{ role, content }`** messages (the conversation you sent to your LLM) and the **final assistant text** (`output`) from that model. The client builds the log entry and posts it to the AILP API as **`{ airta_import: entry }`**, which is the hosted server contract.
+**Send:** With **`createAilp()`**, pass an array of **`{ role, content }`** messages (the conversation you sent to your LLM) and the **final assistant text** (`output`) from that model. The client builds a flat AILP log entry and posts it directly to the API. The hosted server validates **`airta_import: 1`** as a numeric import flag alongside the normal top-level log fields.
 
 **Receive:** An **`AilpAssessResponse`** including:
 
@@ -87,7 +87,7 @@ console.log(result.risk_level, result.judge_reasoning);
 
 Optional third argument per call: **`{ model?, endpoint? }`** to record which model produced the output and an optional endpoint label.
 
-**Omit `provider`** if your AILP server is configured to choose the expert/judge pipeline (and keys) itself — then you do **not** need to pass provider keys from the client. If you **do** set **`provider`** (or **`expertProvider`** / **`judgeProvider`**), supply the matching **`geminiApiKey`** and/or **`openaiApiKey`** so the client can send **`X-Gemini-Api-Key`** and **`X-OpenAI-Api-Key`** as required.
+**Omit `provider`** if your AILP server is configured to choose the expert/judge pipeline (and keys) itself — then you may not need to pass provider keys from the client. If you **do** set **`provider`** (or **`expertProvider`** / **`judgeProvider`**), supply the matching **`geminiApiKey`** and/or **`openaiApiKey`** so the client can send **`Gemini-Api-Key`** / **`OpenAI-Api-Key`** plus the **`X-*-Api-Key`** compatibility variants.
 
 ### `createAilp` options
 
@@ -99,7 +99,7 @@ Optional third argument per call: **`{ model?, endpoint? }`** to record which mo
 | **`baseUrl`** | API base URL, no trailing slash. Omit for **`AILP_DEFAULT_BASE_URL`** (`https://ailp.airtasystems.com/ailp`). |
 | **`provider`** | **`"gemini"`** \| **`"openai"`** — same vendor for experts and judge when split fields omitted. Omit to let the server default. |
 | **`expertProvider`** / **`judgeProvider`** | Split vendors; send both API keys when both sides need them. |
-| **`geminiApiKey`** / **`openaiApiKey`** | Mapped to **`X-Gemini-Api-Key`** / **`X-OpenAI-Api-Key`**. When all provider fields are omitted, non-empty keys may both be sent so mixed server configs still authenticate. |
+| **`geminiApiKey`** / **`openaiApiKey`** | Mapped to **`Gemini-Api-Key`** / **`OpenAI-Api-Key`** and **`X-Gemini-Api-Key`** / **`X-OpenAI-Api-Key`**. When all provider fields are omitted, non-empty keys may both be sent so mixed server configs still authenticate. |
 | **`timeoutMs`** | Optional **`fetch` timeout** for assess calls. |
 
 `createAilp()` throws synchronously if **`apiKey`** or **`programId`** is missing or empty — fail fast at boot rather than per request.
@@ -107,6 +107,89 @@ Optional third argument per call: **`{ model?, endpoint? }`** to record which mo
 Export **`AILP_DEFAULT_BASE_URL`** when you need the constant in app code.
 
 ---
+
+## Setup Guide for LLMs
+
+When an LLM or coding agent is asked to integrate AILP into a JavaScript/TypeScript app, follow this checklist:
+
+1. Install the package:
+
+```bash
+npm install @airtasystems/ailp
+```
+
+2. Use the hosted API default unless the user gives a different deployment:
+
+```text
+https://ailp.airtasystems.com/ailp
+```
+
+Do not append `/assess` yourself when using **`createAilp()`** or **`AilpClient`**; the client appends **`/health`**, **`/assess`**, or **`/assess/stream`**.
+
+3. Require these app secrets:
+
+```bash
+AILP_API_KEY=...
+AIRTASYSTEMS_PROGRAM_ID=...
+```
+
+If the app explicitly sets **`provider: "openai"`** or **`provider: "gemini"`**, also require the matching provider key:
+
+```bash
+OPENAI_API_KEY=...
+# or
+GEMINI_API_KEY=...
+```
+
+4. Prefer **`createAilp()`** for normal integrations:
+
+```typescript
+import { createAilp } from "@airtasystems/ailp";
+
+const ailp = createAilp({
+  apiKey: process.env.AILP_API_KEY!,
+  programId: process.env.AIRTASYSTEMS_PROGRAM_ID!,
+  frameworks: ["eu-ai-act", "owasp-llm"],
+});
+
+const result = await ailp(messages, assistantText, {
+  model: "gpt-4o-mini",
+  endpoint: "chat-completion",
+});
+```
+
+5. Send the original LLM conversation as **`messages`** and the final assistant text as **`assistantText`**. Do not send the AILP assessment prompt, hidden system policy text, or provider SDK response object unless the application intentionally wants that audited.
+
+6. For raw **`fetch`** integrations, post a flat JSON body to **`POST /assess`**. Do not wrap it as **`{ airta_import: entry }`**. The hosted API expects:
+
+```js
+{
+  airta_import: 1,
+  timestamp: new Date().toISOString(),
+  input: { messages, endpoint: "chat-completion" },
+  output: assistantText,
+  modelTested: "gpt-4o-mini",
+  framework: ["eu-ai-act", "owasp-llm"],
+  airtasystems: {
+    programId: process.env.AIRTASYSTEMS_PROGRAM_ID,
+    frameworks: ["eu-ai-act", "owasp-llm"],
+  },
+}
+```
+
+7. For raw **`fetch`** headers, include:
+
+| Header | Value |
+|--------|-------|
+| **`Content-Type`** | **`application/json`** |
+| **`Airta-Api-Key`** | AILP API key |
+| **`Airta-Program-Id`** | AIRTA Systems program ID |
+| **`OpenAI-Api-Key`** / **`Gemini-Api-Key`** | Provider key when that provider is used by the AILP pipeline |
+| **`X-OpenAI-Api-Key`** / **`X-Gemini-Api-Key`** | Compatibility variant; safe to send with the non-`X` header |
+
+8. In browser apps, prefer a server route or proxy for production. **`NEXT_PUBLIC_*`** and **`VITE_*`** values are visible to users, so never expose production LLM provider keys in a public bundle.
+
+9. If the API returns HTTP 400, print or log the JSON response body. Validation errors usually name the missing header, missing field, or bad request shape.
 
 ## `AilpClient` (full control)
 
@@ -131,11 +214,11 @@ await client.assess(entry, auth);
 await client.assessStream(entry, auth, { onEvent });
 ```
 
-- **`assess`** — wraps the **`AilpLogEntry`** as **`{ airta_import: entry }`**, sends **`POST /assess`**, and returns the full **`AilpAssessResponse`**.
-- **`assessStream`** — wraps the **`AilpLogEntry`** as **`{ airta_import: entry }`**, sends **`POST /assess/stream`**, and reads NDJSON until **`done`**. Same final shape as **`assess`**.
+- **`assess`** — sends the **`AilpLogEntry`** as a flat **`POST /assess`** body and returns the full **`AilpAssessResponse`**. Use **`airta_import: 1`** for hosted import-mode requests.
+- **`assessStream`** — sends the **`AilpLogEntry`** as a flat **`POST /assess/stream`** body and reads NDJSON until **`done`**. Same final shape as **`assess`**.
 - Non-2xx responses throw **`AilpError`** with **`status`** and **`body`**. A **400** mentioning **`Airta-Api-Key`** or **`Airta-Program-Id`** means the server rejected the request for missing auth.
 
-The **`AilpAssessHeaders`** passed to **`assess`** / **`assessStream`** accepts **`apiKey`**, **`programId`**, **`geminiApiKey`**, and **`openaiApiKey`**. Use **`buildProviderAuthHeaders(entry, auth)`** if you build **`fetch`** yourself — it produces the correct **`Airta-*`** and **`X-*-Api-Key`** header set.
+The **`AilpAssessHeaders`** passed to **`assess`** / **`assessStream`** accepts **`apiKey`**, **`programId`**, **`geminiApiKey`**, and **`openaiApiKey`**. Use **`buildProviderAuthHeaders(entry, auth)`** if you build **`fetch`** yourself — it produces the correct **`Airta-*`**, provider-key, and **`X-*-Api-Key`** compatibility header set.
 
 **Proxied streams:** **`readAilpAssessNdjsonStream(response.body, onEvent)`** parses **`POST /assess/stream`** from any **`fetch`** (for example your own Next.js route).
 
@@ -238,7 +321,7 @@ Override any field by passing **`useAilp({ ... })`** instead of relying on env.
 | **`NEXT_PUBLIC_AILP_API_KEY`** / **`VITE_AILP_API_KEY`** | **Required.** AILP API key from ailp.airtasystems.com. |
 | **`NEXT_PUBLIC_AIRTASYSTEMS_PROGRAM_ID`** / **`VITE_AIRTASYSTEMS_PROGRAM_ID`** | **Required.** Program ID from ailp.airtasystems.com. |
 | **`NEXT_PUBLIC_AILP_BASE_URL`** / **`VITE_AILP_BASE_URL`** | API base (including any path prefix, e.g. `/ailp`). Omit for **`AILP_DEFAULT_BASE_URL`** (`https://ailp.airtasystems.com/ailp`). |
-| **`NEXT_PUBLIC_AILP_PROVIDER`** / **`VITE_AILP_PROVIDER`** | Omit so the **server** picks pipeline and keys. Set **`gemini`** or **`openai`** only when the browser must send **`X-*-Api-Key`**. |
+| **`NEXT_PUBLIC_AILP_PROVIDER`** / **`VITE_AILP_PROVIDER`** | Omit so the **server** picks pipeline and keys. Set **`gemini`** or **`openai`** only when the browser must send provider API key headers. |
 | **`NEXT_PUBLIC_GEMINI_API_KEY`** / **`VITE_GEMINI_API_KEY`** | Required when provider (or split experts/judge) uses Gemini. |
 | **`NEXT_PUBLIC_OPENAI_API_KEY`** / **`VITE_OPENAI_API_KEY`** | Required when provider (or split experts/judge) uses OpenAI. |
 | **`NEXT_PUBLIC_AILP_FRAMEWORKS`** / **`VITE_AILP_FRAMEWORKS`** | Comma-separated or JSON array; default **`eu-ai-act`**. |
@@ -292,7 +375,7 @@ Hyphen and underscore variants are accepted where listed.
 
 ## Node: load `.env` before reading `process.env`
 
-Node does not load **`.env`** automatically. Use **`dotenv`** (or your host’s secrets) **before** `createAilp` so **`AILP_API_KEY`**, **`AIRTASYSTEMS_PROGRAM_ID`**, and any provider keys are defined — otherwise `createAilp()` throws on start-up, or you may see **400** responses mentioning a missing **`Airta-Api-Key`**, **`Airta-Program-Id`**, or **`X-*-Api-Key`** header.
+Node does not load **`.env`** automatically. Use **`dotenv`** (or your host’s secrets) **before** `createAilp` so **`AILP_API_KEY`**, **`AIRTASYSTEMS_PROGRAM_ID`**, and any provider keys are defined — otherwise `createAilp()` throws on start-up, or you may see **400** responses mentioning a missing **`Airta-Api-Key`**, **`Airta-Program-Id`**, **`OpenAI-Api-Key`**, or **`Gemini-Api-Key`** header.
 
 ---
 
@@ -303,9 +386,10 @@ Node does not load **`.env`** automatically. Use **`dotenv`** (or your host’s 
 | `createAilp` throws at start-up | **`apiKey`** and **`programId`** are both required. Load env (e.g. `dotenv`) before `createAilp()`. |
 | **400** — `Missing required header(s): Airta-Api-Key, Airta-Program-Id` | Pass **`apiKey`** / **`programId`** (or the corresponding env vars); values are trimmed, so whitespace-only strings are treated as missing. |
 | **400** — missing provider API key | Align **`provider`** / split providers with the keys you pass; verify **`process.env`** at runtime. |
+| **400** — bad body shape or missing import flag | Send a flat body with **`airta_import: 1`**, not **`{ airta_import: entry }`**. Include top-level **`timestamp`**, **`input`**, **`output`**, **`modelTested`**, **`framework`**, and **`airtasystems`**. |
 | Wrong server | Set **`baseUrl`** (no trailing slash). |
 | Timeouts | Increase **`timeoutMs`** or use **`assessStream`** for progressive UI. |
-| **AilpError** | Inspect **`status`** and **`body`**. |
+| **AilpError** | Inspect **`status`** and **`body`**; while testing raw scripts, print the response as **`JSON.stringify(result)`** so validation details are visible. |
 
 ---
 
