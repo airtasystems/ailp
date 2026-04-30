@@ -6,6 +6,8 @@ This package is a thin **`fetch`** client for the **AILP** (AI Log Protocol) HTT
 
 **Default server:** The hosted AILP API is at **`https://ailp.airtasystems.com/ailp`** (no trailing slash). The client appends **`/health`**, **`/assess`**, and **`/assess/stream`** to that base. Override with **`baseUrl`** if you use another deployment (for example **`http://127.0.0.1:8000/ailp`** when your server is mounted there).
 
+For normal product traffic, call AILP as **fire-and-forget telemetry** after your product LLM returns. Do not await AILP before sending the assistant response to the user unless your application intentionally gates on the risk verdict.
+
 For integration patterns, env loading in Node, and production security, see **[Integrating the AIRTA AILP TypeScript client](https://github.com/airtasystems/ailp/blob/main/integrating-airta-ailp-client.md)** in the repository. The HTTP contract (headers, log entry shape, streaming events) is described in the **[AILP server README](https://github.com/airtasystems/ailp/blob/main/README.md)**.
 
 **Stable 3.01 release.** Follows semver — breaking changes will bump the major version.
@@ -74,7 +76,7 @@ Nothing in the client needs to change for redaction to work — it happens serve
 
 ## Quick start (`createAilp`)
 
-Configure once, then call the returned function after each LLM response:
+Configure once, then call the returned function after each LLM response without blocking the user-facing path:
 
 ```typescript
 import { createAilp } from "@airtasystems/ailp";
@@ -89,11 +91,18 @@ const ailp = createAilp({
   geminiApiKey: process.env.GEMINI_API_KEY,
 });
 
-const result = await ailp(messages, assistantText);
-console.log(result.risk_level, result.judge_reasoning);
+void ailp(messages, assistantText, { model: "gpt-4o-mini" })
+  .then((result) => {
+    console.log("AILP risk:", result.risk_level);
+  })
+  .catch((err) => {
+    console.warn("AILP assessment failed:", err);
+  });
 ```
 
 Optional third argument per call: **`{ model?, endpoint? }`** to record which model produced the output and an optional endpoint label.
+
+Fire-and-forget should still be observable: attach a `.catch(...)`, use a short **`timeoutMs`**, and send failures to your logs or telemetry. If assessment completeness is a compliance requirement, enqueue the assessment into a durable background worker rather than relying on an in-process promise.
 
 To also classify the incoming request against security frameworks (OWASP LLM, OWASP Agentic, and MITRE ATT&CK) without changing the response-based **`risk_level`**, enable request security:
 
@@ -105,15 +114,32 @@ const ailp = createAilp({
   assessmentMode: "response_safety_with_request_security",
 });
 
-const result = await ailp(messages, assistantText);
-console.log(result.risk_level); // response safety verdict
-console.log(result.requestRiskLevel); // independent request security verdict
+void ailp(messages, assistantText)
+  .then((result) => {
+    console.log(result.risk_level); // response safety verdict
+    console.log(result.requestRiskLevel); // independent request security verdict
+  })
+  .catch((err) => {
+    console.warn("AILP assessment failed:", err);
+  });
 ```
 
 You can also use the compact alias **`security: true`** globally or per call:
 
 ```typescript
-const result = await ailp(messages, assistantText, { security: true });
+void ailp(messages, assistantText, { security: true }).catch((err) => {
+  console.warn("AILP assessment failed:", err);
+});
+```
+
+Await the result only when the application needs to make a synchronous decision from the verdict, such as moderation gates, admin review tools, eval/CI runs, or compliance workflows:
+
+```typescript
+const result = await ailp(messages, assistantText);
+
+if (result.risk_level === "critical" || result.risk_level === "high") {
+  await notifyComplianceTeam(result);
+}
 ```
 
 **Omit `provider`** if your AILP server is configured to choose the expert/judge pipeline itself. Still pass **`openaiApiKey`** and/or **`geminiApiKey`** when your hosted program requires client-supplied pipeline keys; the client will forward any non-empty keys even when **`provider`** is omitted. If you **do** set **`provider`** (or **`expertProvider`** / **`judgeProvider`**), supply the matching key so the client can send **`Gemini-Api-Key`** / **`OpenAI-Api-Key`** plus the **`X-*-Api-Key`** compatibility variants.
@@ -142,36 +168,6 @@ Export **`AILP_DEFAULT_BASE_URL`** when you need the constant in app code.
 ## Setup Guide for LLMs
 
 When an LLM or coding agent is asked to integrate AILP into a JavaScript/TypeScript app, follow this checklist:
-
-### Cursor instructions
-
-![Cursor prompt for AILP integration](./cursor_instructions.png)
-
-Use this prompt when asking Cursor or another coding agent to add AILP to an app:
-
-```text
-Integrate airtasystems AILP into the LLM endpoints in this app.
-Use the following .env values:
-OPENAI_API_KEY
-AILP_API_KEY
-AILP_PROGRAM_ID
-AILP_FRAMEWORKS
-```
-
-For server-side app integrations, map those variables directly into **`createAilp()`**:
-
-```typescript
-import { createAilp } from "@airtasystems/ailp";
-
-const ailp = createAilp({
-  apiKey: process.env.AILP_API_KEY!,
-  programId: process.env.AILP_PROGRAM_ID!,
-  frameworks: process.env.AILP_FRAMEWORKS?.split(",").map((item) => item.trim()).filter(Boolean) ?? ["eu-ai-act"],
-  openaiApiKey: process.env.OPENAI_API_KEY,
-});
-```
-
-Call **`ailp(messages, assistantText)`** after each OpenAI or other LLM endpoint returns, using the original request messages and the final assistant text. Keep **`AILP_API_KEY`**, **`AILP_PROGRAM_ID`**, and **`OPENAI_API_KEY`** server-side; use a server route or proxy for browser apps.
 
 1. Install the package:
 
@@ -211,9 +207,11 @@ const ailp = createAilp({
   geminiApiKey: process.env.GEMINI_API_KEY,
 });
 
-const result = await ailp(messages, assistantText, {
+void ailp(messages, assistantText, {
   model: "gpt-4o-mini",
   endpoint: "chat-completion",
+}).catch((err) => {
+  console.warn("AILP assessment failed:", err);
 });
 ```
 
@@ -269,13 +267,15 @@ const auth = {
   openaiApiKey,
 };
 
-await client.health(); // GET /health → boolean
-await client.assess(entry, auth);
+await client.health(); // GET /health -> boolean
+void client.assess(entry, auth).catch((err) => {
+  console.warn("AILP assessment failed:", err);
+});
 await client.assessStream(entry, auth, { onEvent });
 ```
 
-- **`assess`** — sends the **`AilpLogEntry`** as a flat **`POST /assess`** body and returns the full **`AilpAssessResponse`**. Use **`airta_import: 1`** for hosted import-mode requests.
-- **`assessStream`** — sends the **`AilpLogEntry`** as a flat **`POST /assess/stream`** body and reads NDJSON until **`done`**. Same final shape as **`assess`**.
+- **`assess`** — sends the **`AilpLogEntry`** as a flat **`POST /assess`** body and returns the full **`AilpAssessResponse`**. Use it as non-blocking telemetry by default; await only for explicit gating or back-office workflows. Use **`airta_import: 1`** for hosted import-mode requests.
+- **`assessStream`** — sends the **`AilpLogEntry`** as a flat **`POST /assess/stream`** body and reads NDJSON until **`done`**. Same final shape as **`assess`**. Use streaming for operator/admin progress UIs, not default production chat paths.
 - Non-2xx responses throw **`AilpError`** with **`status`** and **`body`**. A **400** mentioning **`Airta-Api-Key`** or **`Airta-Program-Id`** means the server rejected the request for missing auth.
 
 The **`AilpAssessHeaders`** passed to **`assess`** / **`assessStream`** accepts **`apiKey`**, **`programId`**, **`geminiApiKey`**, and **`openaiApiKey`**. Use **`buildProviderAuthHeaders(entry, auth)`** if you build **`fetch`** yourself — it produces the correct **`Airta-*`**, provider-key, and **`X-*-Api-Key`** compatibility header set.
@@ -308,7 +308,9 @@ Pass through **`messages`** and the **string output** from OpenAI, Anthropic, Ge
 ```typescript
 const response = await openai.chat.completions.create({ model, messages });
 const text = response.choices[0]?.message?.content ?? "";
-const res = await ailp(messages, text);
+void ailp(messages, text).catch((err) => {
+  console.warn("AILP assessment failed:", err);
+});
 ```
 
 ---
@@ -350,6 +352,8 @@ Keeps **`react`** out of the main bundle.
 ### `useAilp()` — recommended
 
 Memoized **`createAilp`** + **`assess`** / **`result`** / **`loading`** / **`error`** / **`reset`**. Reads **Next.js** **`NEXT_PUBLIC_*`** or **Vite** **`VITE_*`** when options are omitted. Throws synchronously on the first render if **`apiKey`** or **`programId`** is missing — wrap in an error boundary if you want a graceful fallback.
+
+Use the React hook for panels or tools that intentionally display AILP progress/results. For production chat paths, prefer a server route or background worker that calls AILP as fire-and-forget telemetry.
 
 ```tsx
 import { useAilp } from "@airtasystems/ailp/react";
@@ -449,7 +453,7 @@ Node does not load **`.env`** automatically. Use **`dotenv`** (or your host’s 
 | **400** — `Missing OpenAI API key` / `Missing Gemini API key` | Pass **`openaiApiKey: process.env.OPENAI_API_KEY`** and/or **`geminiApiKey: process.env.GEMINI_API_KEY`**. Hosted programs may require these even when **`provider`** is omitted and provider selection is server-side. |
 | **400** — bad body shape or missing import flag | Send a flat body with **`airta_import: 1`**, not **`{ airta_import: entry }`**. Include top-level **`timestamp`**, **`input`**, **`output`**, **`modelTested`**, **`framework`**, and **`airtasystems`**. |
 | Wrong server | Set **`baseUrl`** (no trailing slash). |
-| Timeouts | Increase **`timeoutMs`** or use **`assessStream`** for progressive UI. |
+| Timeouts | Do not await AILP on the product response path. Use fire-and-forget telemetry, increase **`timeoutMs`** only for awaited workflows, or use **`assessStream`** for operator/admin progressive UI. |
 | **AilpError** | Inspect **`status`** and **`body`**; while testing raw scripts, print the response as **`JSON.stringify(result)`** so validation details are visible. |
 
 ---
