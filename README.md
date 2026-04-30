@@ -143,6 +143,36 @@ Export **`AILP_DEFAULT_BASE_URL`** when you need the constant in app code.
 
 When an LLM or coding agent is asked to integrate AILP into a JavaScript/TypeScript app, follow this checklist:
 
+### Cursor instructions
+
+![Cursor prompt for AILP integration](./cursor_instructions.png)
+
+Use this prompt when asking Cursor or another coding agent to add AILP to an app:
+
+```text
+Integrate airtasystems AILP into the LLM endpoints in this app.
+Use the following .env values:
+OPENAI_API_KEY
+AILP_API_KEY
+AILP_PROGRAM_ID
+AILP_FRAMEWORKS
+```
+
+For server-side app integrations, map those variables directly into **`createAilp()`**:
+
+```typescript
+import { createAilp } from "@airtasystems/ailp";
+
+const ailp = createAilp({
+  apiKey: process.env.AILP_API_KEY!,
+  programId: process.env.AILP_PROGRAM_ID!,
+  frameworks: process.env.AILP_FRAMEWORKS?.split(",").map((item) => item.trim()).filter(Boolean) ?? ["eu-ai-act"],
+  openaiApiKey: process.env.OPENAI_API_KEY,
+});
+```
+
+Call **`ailp(messages, assistantText)`** after each OpenAI or other LLM endpoint returns, using the original request messages and the final assistant text. Keep **`AILP_API_KEY`**, **`AILP_PROGRAM_ID`**, and **`OPENAI_API_KEY`** server-side; use a server route or proxy for browser apps.
+
 1. Install the package:
 
 ```bash
